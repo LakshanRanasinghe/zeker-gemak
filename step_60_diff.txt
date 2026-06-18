@@ -1,0 +1,63 @@
+The following changes were made by the USER to: /Users/dayzmini/Sites/zeker-gemak/index.php. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -44,121 +44,625 @@
+     <?php endif; ?>
+ 
+     <!-- HEADER COMPONENT -->
+-    <div class="w-full flex flex-col justify-start items-start shadow-sm select-none">
+-        <!-- Top Bar -->
+-        <div
+-            class="w-full lg:px-[156px] px-6 py-4 bg-white flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0 border-b border-slate-100">
+-            <!-- Logo -->
+-            <a href="/" class="flex-shrink-0 hover:opacity-90 transition-opacity">
+-                <img class="w-[204px] h-[48px] object-contain" src="assets/images/zeker-gemak-logo.png"
+-                    alt="ZekerGemak Logo" />
+-            </a>
+-
+-            <!-- Search Input -->
+-            <div
+-                class="w-full md:w-[480px] h-[40px] px-3 bg-white rounded-xl border border-[#D0D7DD] flex justify-start items-center gap-2 transition-all duration-200 focus-within:border-[#6F7983] focus-within:shadow-sm">
+-                <svg class="w-[18px] h-[18px] text-[#6F7983] flex-shrink-0" fill="none" stroke="currentColor"
+-                    stroke-width="1.8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+-                    <path stroke-linecap="round" stroke-linejoin="round"
+-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+-                </svg>
+-                <input type="text" placeholder="Search for products..."
+-                    class="w-full bg-transparent border-none outline-none text-[#6F7983] text-[14px] font-sans font-normal leading-[18.20px] placeholder-[#6F7983] focus:ring-0" />
+-            </div>
+-
+-            <!-- Action Items -->
+-            <div class="flex items-center gap-6 flex-wrap justify-center md:justify-end">
+-                <!-- Language Switcher -->
+-                <div class="flex items-center gap-1 cursor-pointer hover:op
+<truncated 45214 bytes>
+style="width: 12.55px; height: 16.34px; left: 93.15px; top: 13.01px; position: absolute; background: #09355D">
++                            </div>
++                            <div
++                                style="width: 10.79px; height: 12.15px; left: 106.52px; top: 12.99px; position: absolute; background: #09355D">
++                            </div>
++                            <div
++                                style="width: 11.78px; height: 11.91px; left: 118.33px; top: 13.21px; position: absolute; background: #09355D">
++                            </div>
++                            <div
++                                style="width: 19.66px; height: 11.99px; left: 131.80px; top: 13.01px; position: absolute; background: #09355D">
++                            </div>
++                            <div
++                                style="width: 12px; height: 12px; left: 11px; top: 11px; position: absolute; background: #51A3EE">
++                            </div>
++                            <div
++                                style="width: 28.31px; height: 13.39px; left: 2.93px; top: 18.61px; position: absolute; background: #51A3EE">
++                            </div>
++                            <div
++                                style="width: 30px; height: 17.39px; left: 2px; top: 2px; position: absolute; background: #0E4F8B">
++                            </div>
++                        </div>
++                    </div>
++                    <div
++                        style="height: 56px; padding: 12px; flex-direction: column; justify-content: center; align-items: center; gap: 10px; display: inline-flex">
++                        <div style="width: 177px; height: 38px; position: relative; overflow: hidden">
++                            <div
++                                style="width: 31.82px; height: 28.76px; left: 2.55px; top:
+<truncated 5276 bytes>
+
+NOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need.
