@@ -60,27 +60,54 @@ if ($is_direct):
         <div class="w-full flex flex-col justify-start items-start shadow-sm select-none">
             <!-- Top Bar -->
             <div
-                class="w-full lg:px-[156px] px-6 py-4 bg-white flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0 border-b border-slate-100">
-                <!-- Logo -->
-                <a href="/" class="flex-shrink-0 hover:opacity-90 transition-opacity">
-                    <img class="w-[204px] h-[48px] object-contain" src="assets/images/zeker-gemak-logo.png"
-                        alt="ZekerGemak Logo" />
-                </a>
+                class="w-full lg:px-[156px] px-6 py-4 bg-white flex justify-between items-center border-b border-slate-100/60 lg:border-b-0">
+                <!-- Logo & Mobile Controls Wrapper -->
+                <div class="w-full lg:w-auto flex justify-between items-center lg:block">
+                    <!-- Logo -->
+                    <a href="/" class="flex-shrink-0 hover:opacity-90 transition-opacity">
+                        <img class="w-[140px] h-[33px] md:w-[170px] md:h-[40px] lg:w-[204px] lg:h-[48px] object-contain"
+                            src="assets/images/zeker-gemak-logo.png" alt="ZekerGemak Logo" />
+                    </a>
 
-                <!-- Search Input -->
+                    <!-- Mobile/Tablet Controls -->
+                    <div class="flex items-center gap-4 lg:hidden">
+                        <!-- Language Switcher (mobile) -->
+                        <div class="flex items-center gap-1 cursor-pointer hover:opacity-85 transition-opacity"
+                            id="mobile-lang-btn">
+                            <img class="w-[20px] h-[13px] object-cover rounded-[2px]" src="assets/icons/en.png"
+                                alt="English Flag" />
+                            <span class="text-[#4D5964] text-[14px] font-dm font-normal">En</span>
+                        </div>
+
+                        <!-- Cart (mobile) -->
+                        <a href="#" class="relative p-1 hover:opacity-85 transition-opacity">
+                            <svg class="w-6 h-6 text-[#2C3642]" fill="none" stroke="currentColor" stroke-width="1.8"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75a3 3 0 00-3-3m-9.75 0h9.75m-9.75 0a1.5 1.5 0 01-1.5-1.5V6.75m11.25 7.5a1.5 1.5 0 001.5-1.5V6.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z">
+                                </path>
+                            </svg>
+                            <!-- Cart Badge -->
+                            <span
+                                class="absolute -top-1 -right-1 bg-[#E9A821] text-white text-[10px] font-sans font-bold w-4 h-4 rounded-full flex items-center justify-center">2</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Search Input (Desktop only) -->
                 <div
-                    class="w-full md:w-[480px] h-[40px] px-3 bg-white rounded-xl border border-[#D0D7DD] flex justify-start items-center gap-2 transition-all duration-200 focus-within:border-[#6F7983] focus-within:shadow-sm">
+                    class="hidden lg:flex w-full lg:max-w-[480px] flex-1 h-[40px] px-3 bg-white rounded-xl border border-[#D0D7DD] justify-start items-center gap-2 transition-all duration-200 focus-within:border-[#6F7983] focus-within:shadow-sm">
                     <svg class="w-[18px] h-[18px] text-[#6F7983] flex-shrink-0" fill="none" stroke="currentColor"
                         stroke-width="1.8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                     <input type="text" placeholder="Search for products..."
-                        class="w-full bg-transparent border-none outline-none text-[#6F7983] text-[14px] font-sans font-normal leading-[18.20px] placeholder-[#6F7983] focus:ring-0" />
+                        class="w-full bg-transparent border-none outline-none text-[#6F7983] text-[14px] font-sans font-normal placeholder-[#6F7983] focus:ring-0" />
                 </div>
 
-                <!-- Action Items -->
-                <div class="flex items-center gap-6 flex-wrap justify-center md:justify-end">
+                <!-- Action Items (Desktop only) -->
+                <div class="hidden lg:flex items-center gap-6 flex-shrink-0">
                     <!-- Language Switcher -->
                     <div class="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity">
                         <img class="w-[24px] h-[16px] object-cover rounded-[2px]" src="assets/icons/en.png"
@@ -121,40 +148,214 @@ if ($is_direct):
                 </div>
             </div>
 
+            <!-- Search Bar Wrapper (Mobile/Tablet only) -->
+            <div class="w-full lg:hidden px-6 pb-4 bg-white border-b border-slate-100/60">
+                <div
+                    class="w-full h-[40px] px-3 bg-[#F8FAFC] rounded-xl border border-[#D0D7DD] flex justify-start items-center gap-2 transition-all duration-200 focus-within:bg-white focus-within:border-[#6F7983] focus-within:shadow-sm">
+                    <svg class="w-[18px] h-[18px] text-[#6F7983] flex-shrink-0" fill="none" stroke="currentColor"
+                        stroke-width="1.8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" placeholder="Search for products..."
+                        class="w-full bg-transparent border-none outline-none text-[#6F7983] text-[14px] font-sans font-normal placeholder-[#6F7983] focus:ring-0" />
+                </div>
+            </div>
+
             <!-- Navigation Bar -->
             <div
-                class="w-full h-auto md:h-[56px] lg:px-[156px] px-6 py-3 md:py-0 bg-[#262F40] flex justify-start items-center overflow-x-auto scrollbar-none">
-                <div class="flex justify-start items-center gap-6 whitespace-nowrap">
+                class="w-full h-auto lg:h-[56px] lg:px-[156px] px-6 py-2.5 lg:py-0 bg-[#262F40] flex justify-start items-center relative">
+                <!-- Hamburger Menu Toggle (Mobile/Tablet only) -->
+                <button id="mobile-menu-toggle"
+                    class="flex items-center gap-2 text-white hover:text-[#E9A821] transition-colors font-sans font-semibold text-[15px] lg:hidden flex-shrink-0 focus:outline-none z-10 ml-auto"
+                    aria-label="Toggle Menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <span>Menu</span>
+                </button>
+
+                <!-- Scrollable Categories (Desktop only) -->
+                <div
+                    class="hidden lg:flex flex-1 overflow-x-auto lg:overflow-visible scrollbar-none justify-start items-center gap-6 whitespace-nowrap">
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Ergonomisch</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Ergonomisch</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Hygiëne</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Hygiëne</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Orthopedisch</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Orthopedisch</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Mobiliteit</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Mobiliteit</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Hang
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Hang
                         & Sluitwerk</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Arm-
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Arm-
                         en fiets trainers</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Verzorging</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Verzorging</a>
                     <a href="#"
-                        class="text-white hover:text-slate-300 transition-colors text-[16px] font-sans font-light leading-[24px] break-words">Overig</a>
+                        class="text-white hover:text-slate-300 transition-colors text-[15px] lg:text-[16px] font-sans font-light leading-[24px] break-words">Overig</a>
                 </div>
             </div>
         </div>
     </header>
 
+    <!-- Mobile Drawer Menu Overlay -->
+    <div id="mobile-menu-drawer"
+        class="fixed inset-0 z-50 bg-[#2C3642]/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+        <!-- Drawer content -->
+        <div class="fixed top-0 right-0 bottom-0 w-[300px] bg-white shadow-2xl flex flex-col justify-between p-6 translate-x-full transition-transform duration-300 ease-in-out"
+            id="drawer-content">
+            <div class="flex flex-col gap-8">
+                <!-- Drawer Header -->
+                <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+                    <span class="text-[#2C3642] text-[20px] font-sans font-bold">Menu</span>
+                    <button id="mobile-menu-close" class="p-1 hover:opacity-85 text-[#2C3642]" aria-label="Close Menu">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Categories Links -->
+                <nav class="flex flex-col gap-4">
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Ergonomisch</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Hygiëne</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Orthopedisch</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Mobiliteit</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Hang
+                        & Sluitwerk</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Arm-
+                        en fiets trainers</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Verzorging</a>
+                    <a href="#"
+                        class="text-[#2C3642] hover:text-[#E9A821] text-[16px] font-sans font-semibold py-1 transition-colors">Overig</a>
+                </nav>
+            </div>
+
+            <!-- Drawer Footer (Help support) -->
+            <div class="pt-6 border-t border-slate-100 flex flex-col gap-4">
+                <a href="tel:#" class="flex items-center gap-2.5 text-[#2C3642] hover:text-[#E9A821] transition-colors">
+                    <svg class="w-5 h-5 text-[#2C3642]" fill="none" stroke="currentColor" stroke-width="1.5"
+                        viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z">
+                        </path>
+                    </svg>
+                    <span class="text-[16px] font-sans font-medium">Need help?</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script for mobile drawer controls & logo slider -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mobile Menu Controls
+            const toggleBtn = document.getElementById('mobile-menu-toggle');
+            const closeBtn = document.getElementById('mobile-menu-close');
+            const drawer = document.getElementById('mobile-menu-drawer');
+            const drawerContent = document.getElementById('drawer-content');
+
+            if (toggleBtn && closeBtn && drawer && drawerContent) {
+                const openDrawer = () => {
+                    drawer.classList.remove('opacity-0', 'pointer-events-none');
+                    drawer.classList.add('opacity-100', 'pointer-events-auto');
+                    drawerContent.classList.remove('translate-x-full');
+                    drawerContent.classList.add('translate-x-0');
+                    document.body.style.overflow = 'hidden';
+                };
+
+                const closeDrawer = () => {
+                    drawer.classList.remove('opacity-100', 'pointer-events-auto');
+                    drawer.classList.add('opacity-0', 'pointer-events-none');
+                    drawerContent.classList.remove('translate-x-0');
+                    drawerContent.classList.add('translate-x-full');
+                    document.body.style.overflow = '';
+                };
+
+                toggleBtn.addEventListener('click', openDrawer);
+                closeBtn.addEventListener('click', closeDrawer);
+                drawer.addEventListener('click', (e) => {
+                    if (e.target === drawer) {
+                        closeDrawer();
+                    }
+                });
+            }
+
+            // Bottom Logos Loop Slider (for Mobile/Tablet)
+            const track = document.getElementById('logo-slider-track');
+            if (track) {
+                const parent = track.parentElement;
+                let currentIndex = 0;
+                let slideInterval;
+
+                function slide() {
+                    if (window.innerWidth >= 1024) {
+                        track.style.transform = 'none';
+                        return;
+                    }
+
+                    const width = parent.offsetWidth;
+                    const gap = 16; // gap-4 is 16px
+                    currentIndex++;
+
+                    // Apply smooth slide transition
+                    track.style.transition = 'transform 500ms ease-in-out';
+                    const offset = currentIndex * (width + gap);
+                    track.style.transform = `translateX(-${offset}px)`;
+
+                    // When reaching the duplicated first slide (Slide index 3)
+                    if (currentIndex === 3) {
+                        setTimeout(() => {
+                            // Snap back to start instantly without visual transition
+                            track.style.transition = 'none';
+                            track.style.transform = 'translateX(0px)';
+                            currentIndex = 0;
+                        }, 500);
+                    }
+                }
+
+                function startSlider() {
+                    if (window.innerWidth < 1024) {
+                        slideInterval = setInterval(slide, 3000);
+                    }
+                }
+
+                function stopSlider() {
+                    clearInterval(slideInterval);
+                }
+
+                startSlider();
+
+                window.addEventListener('resize', () => {
+                    stopSlider();
+                    track.style.transition = 'none';
+                    track.style.transform = 'none';
+                    currentIndex = 0;
+                    startSlider();
+                });
+            }
+        });
+    </script>
+
     <?php if ($is_direct): ?>
         <!-- BEAUTIFUL HERO SECTION (For Previewing) -->
-        <main class="relative w-full overflow-hidden">
+        <main class="relative w-full overflow-x-hidden">
             <!-- Hero section -->
             <div class="bg-[#FAF6EE]">
                 <div
-                    class="relative w-full min-h-[846px] lg:px-[156px] px-6 pt-20 pb-32 lg:py-0 flex flex-col lg:flex-row items-center justify-between">
+                    class="relative w-full lg:min-h-[846px] lg:px-[156px] px-6 pt-20 pb-16 lg:py-0 flex flex-col lg:flex-row items-center justify-between">
                     <!-- Text Content Wrapper -->
                     <div class="w-full lg:w-[540px] flex flex-col justify-start items-start gap-10 z-10 flex-shrink-0">
                         <div class="w-full flex flex-col justify-start items-start gap-6">
@@ -185,28 +386,28 @@ if ($is_direct):
 
                     <!-- Tilted Images Wrapper (Universal for Mobile, Tablet, and Desktop) -->
                     <div
-                        class="w-full lg:w-auto flex justify-center items-center overflow-hidden lg:overflow-visible mt-16 lg:mt-0 select-none pointer-events-none z-0">
+                        class="w-full lg:w-auto h-[408px] sm:h-[561px] md:h-[765px] lg:h-auto flex justify-center items-center overflow-hidden lg:overflow-visible mt-16 lg:mt-0 select-none pointer-events-none z-0">
                         <div
                             class="relative w-[905px] h-[1020px] flex-shrink-0 origin-center scale-[0.4] sm:scale-[0.55] md:scale-[0.75] lg:scale-100 xxl:scale-120 transition-transform duration-200 lg:absolute lg:-right-[141.43px] lg:top-1/2 lg:-translate-y-1/2 xxl:-right-[169.72px]">
                             <!-- Background Connecting Line Frame -->
                             <div
-                                class="absolute w-[547.74px] h-[463.20px] left-[150px] top-[297.28px] -rotate-[18deg] origin-top-left border-4 border-[#E9A821]">
+                                class="absolute w-[547.74px] h-[463.20px] left-[150px] top-[407.28px] -rotate-[18deg] origin-top-left border-4 border-[#E9A821]">
                             </div>
 
                             <!-- Bedroom image -->
-                            <img class="absolute w-[446.53px] h-[457.98px] left-[338.90px] top-[438.31px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
+                            <img class="absolute w-[446.53px] h-[457.98px] left-[338.90px] top-[548.31px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
                                 src="assets/images/home/hero-4.png" alt="Bedroom Aids" />
 
                             <!-- Door lock image -->
-                            <img class="absolute w-[261.76px] h-[254.57px] left-[29.78px] top-[578.21px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
+                            <img class="absolute w-[261.76px] h-[254.57px] left-[29.78px] top-[688.21px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
                                 src="assets/images/home/hero-3.png" alt="Smart Lock" />
 
                             <!-- Bathroom accessories image -->
-                            <img class="absolute w-[338.05px] h-[320.99px] left-0 top-[144.90px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
+                            <img class="absolute w-[338.05px] h-[320.99px] left-0 top-[254.90px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
                                 src="assets/images/home/hero-1.png" alt="Bathroom Aids" />
 
                             <!-- Kitchen/dining image -->
-                            <img class="absolute w-[338.05px] h-[320.99px] left-[405.39px] top-[3.43px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
+                            <img class="absolute w-[338.05px] h-[320.99px] left-[405.39px] top-[113.43px] -rotate-[18deg] origin-top-left shadow-2xl rounded-xl object-cover border-4 border-white"
                                 src="assets/images/home/hero-2.png" alt="Kitchen Aids" />
                         </div>
                     </div>
@@ -214,30 +415,48 @@ if ($is_direct):
 
                 <!-- Bottom Logos Row -->
                 <div
-                    class="w-full bg-white border-t border-slate-200/60 px-6 py-6 overflow-x-auto scrollbar-none flex justify-center items-center">
-                    <div class="flex justify-between items-center gap-[96px] min-w-max mx-auto px-4">
-                        <img src="assets/images/logos/logoipsum-1.svg"
-                            class="h-10 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 1" />
-                        <img src="assets/images/logos/logoipsum-2.svg"
-                            class="h-8 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 2" />
-                        <img src="assets/images/logos/logoipsum-3.svg"
-                            class="h-10 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 3" />
-                        <img src="assets/images/logos/logoipsum-4.svg"
-                            class="h-10 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 4" />
-                        <img src="assets/images/logos/logoipsum-5.svg"
-                            class="h-10 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 5" />
-                        <img src="assets/images/logos/logoipsum-6.png"
-                            class="h-10 object-contain hover:opacity-85 transition-opacity" alt="Logoipsum 6" />
+                    class="w-full bg-white border-t border-slate-200/60 px-6 py-8 overflow-hidden flex justify-center items-center mt-0 lg:mt-24">
+                    <div class="w-full max-w-6xl overflow-hidden relative">
+                        <div id="logo-slider-track"
+                            class="flex items-center gap-4 w-max lg:w-full lg:justify-between lg:gap-[96px]">
+                            <!-- Original 6 Logos -->
+                            <img src="assets/images/logos/logoipsum-1.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 1" />
+                            <img src="assets/images/logos/logoipsum-2.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-6 md:h-8 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 2" />
+                            <img src="assets/images/logos/logoipsum-3.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 3" />
+                            <img src="assets/images/logos/logoipsum-4.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 4" />
+                            <img src="assets/images/logos/logoipsum-5.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 5" />
+                            <img src="assets/images/logos/logoipsum-6.png"
+                                class="w-[calc((100vw-64px)/2)] lg:w-auto flex-shrink-0 lg:flex-shrink h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 6" />
+
+                            <!-- Duplicated first 2 logos for infinite loop (Hidden on desktop) -->
+                            <img src="assets/images/logos/logoipsum-1.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:hidden flex-shrink-0 h-8 md:h-10 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 1 Duplicate" />
+                            <img src="assets/images/logos/logoipsum-2.svg"
+                                class="w-[calc((100vw-64px)/2)] lg:hidden flex-shrink-0 h-6 md:h-8 object-contain hover:opacity-85 transition-opacity"
+                                alt="Logoipsum 2 Duplicate" />
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Categories Section -->
             <section class="w-full lg:px-[156px] px-6 py-16">
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+                <div class="flex flex-wrap justify-center gap-4 lg:gap-6">
                     <!-- Bedroom Card -->
                     <div
-                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer">
+                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer w-[calc(50%-8px)] sm:w-[calc((100%-32px)/3)] lg:w-auto lg:flex-1">
                         <span
                             class="text-[#2C3642] text-[20px] font-sans font-bold leading-[30px] text-center z-10 group-hover:text-[#E9A821] transition-colors duration-300">
                             Bedroom
@@ -250,7 +469,7 @@ if ($is_direct):
 
                     <!-- Kitchen & Dining Card -->
                     <div
-                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer">
+                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer w-[calc(50%-8px)] sm:w-[calc((100%-32px)/3)] lg:w-auto lg:flex-1">
                         <span
                             class="text-[#2C3642] text-[20px] font-sans font-bold leading-[30px] text-center z-10 group-hover:text-[#E9A821] transition-colors duration-300">
                             Kitchen & Dining
@@ -264,7 +483,7 @@ if ($is_direct):
 
                     <!-- Inside & Outside Card -->
                     <div
-                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer">
+                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer w-[calc(50%-8px)] sm:w-[calc((100%-32px)/3)] lg:w-auto lg:flex-1">
                         <span
                             class="text-[#2C3642] text-[20px] font-sans font-bold leading-[30px] text-center z-10 group-hover:text-[#E9A821] transition-colors duration-300">
                             Inside & Outside
@@ -278,7 +497,7 @@ if ($is_direct):
 
                     <!-- Living Room Card -->
                     <div
-                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer">
+                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer w-[calc(50%-8px)] sm:w-[calc((100%-32px)/3)] lg:w-auto lg:flex-1">
                         <span
                             class="text-[#2C3642] text-[20px] font-sans font-bold leading-[30px] text-center z-10 group-hover:text-[#E9A821] transition-colors duration-300">
                             Living Room
@@ -292,7 +511,7 @@ if ($is_direct):
 
                     <!-- Bathroom Card -->
                     <div
-                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer">
+                        class="flex flex-col items-center justify-between pt-6 pb-4 px-4 h-[250px] bg-[#F3F5F7] rounded-[16px] overflow-hidden relative group hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer w-[calc(50%-8px)] sm:w-[calc((100%-32px)/3)] lg:w-auto lg:flex-1">
                         <span
                             class="text-[#2C3642] text-[20px] font-sans font-bold leading-[30px] text-center z-10 group-hover:text-[#E9A821] transition-colors duration-300">
                             Bathroom
@@ -310,10 +529,12 @@ if ($is_direct):
             <section class="w-full lg:px-[156px] px-6 py-16 md:py-20 flex flex-col gap-10">
 
                 <!-- Section Header -->
-                <div class="flex justify-between items-center">
-                    <h2 class="text-[#2C3642] text-[36px] font-bold font-sans leading-[54px]">Most purchased</h2>
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2
+                        class="w-full sm:w-auto text-center sm:text-left text-[#2C3642] text-3xl md:text-[36px] font-bold font-sans leading-tight md:leading-[54px]">
+                        Most purchased</h2>
                     <a href="#"
-                        class="h-12 px-6 py-3 rounded-lg border-[1.5px] border-[#E9A821] text-[#E9A821] text-[16px] font-bold font-sans leading-6 flex items-center justify-center hover:bg-[#E9A821]/10 transition-colors duration-200">
+                        class="w-full sm:w-auto h-12 px-6 py-3 rounded-lg border-[1.5px] border-[#E9A821] text-[#E9A821] text-[16px] font-bold font-sans leading-6 flex items-center justify-center hover:bg-[#E9A821]/10 transition-colors duration-200">
                         Discover more
                     </a>
                 </div>
@@ -841,36 +1062,56 @@ if ($is_direct):
                             </h2>
                             <ul class="flex flex-col gap-5">
                                 <li class="flex items-start gap-4">
-                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22"
+                                        fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841"
+                                            stroke="#00A63E" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
                                     <span class="text-[#4D5964] text-lg font-bold font-sans leading-7">
                                         Wide range of aids for the home, mobility, sleeping, and bathroom.
                                     </span>
                                 </li>
                                 <li class="flex items-start gap-4">
-                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22"
+                                        fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841"
+                                            stroke="#00A63E" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
                                     <span class="text-[#4D5964] text-lg font-bold font-sans leading-7">
                                         Quality & reliability – carefully selected products.
                                     </span>
                                 </li>
                                 <li class="flex items-start gap-4">
-                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22"
+                                        fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841"
+                                            stroke="#00A63E" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
                                     <span class="text-[#4D5964] text-lg font-bold font-sans leading-7">
                                         Practical advice and clear product information for the right choice.
                                     </span>
                                 </li>
                                 <li class="flex items-start gap-4">
-                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <svg class="w-6 h-6 flex-shrink-0 mt-0.5" width="22" height="22" viewBox="0 0 22 22"
+                                        fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M20.7987 9.00341C21.2554 11.2447 20.9299 13.5748 19.8765 15.6052C18.8231 17.6356 17.1056 19.2435 15.0102 20.1607C12.9148 21.078 10.5683 21.2492 8.36196 20.6458C6.15563 20.0424 4.22285 18.7008 2.88593 16.8448C1.54902 14.9889 0.88878 12.7306 1.01532 10.4468C1.14186 8.16294 2.04754 5.9915 3.58131 4.29458C5.11508 2.59766 7.18424 1.47784 9.44372 1.12186C11.7032 0.765884 14.0164 1.19527 15.9977 2.33841"
+                                            stroke="#00A63E" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                        <path d="M7.99805 10.0039L10.998 13.0039L20.998 3.00391" stroke="#00A63E"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
                                     <span class="text-[#4D5964] text-lg font-bold font-sans leading-7">
                                         Get started quickly – order directly and try it at home.
@@ -1229,7 +1470,7 @@ if ($is_direct):
                             alt="Big savings in interior style" />
                     </div>
                     <div
-                        class="w-full md:w-1/2 bg-[#FEDD99] px-6 py-12 md:py-[60px] md:pl-[60px] md:pr-[156px] flex flex-col justify-center items-start gap-6">
+                        class="w-full md:w-1/2 bg-[#FEDD99] px-6 py-12 md:py-[60px] md:pl-[60px] md:pr-[60px] lg:pr-[156px] flex flex-col justify-center items-start gap-6">
                         <div class="flex flex-col gap-4 w-full">
                             <span
                                 class="text-[#6F7983] text-sm md:text-[16px] font-sans font-bold uppercase tracking-wider leading-6">
@@ -1245,7 +1486,7 @@ if ($is_direct):
                             </p>
                         </div>
                         <a href="#"
-                            class="h-14 px-[26px] py-4 bg-white shadow-[4px_6px_20px_rgba(109,109,120,0.08)] rounded-xl inline-flex justify-center items-center gap-2 hover:bg-slate-50 hover:shadow-md transition-all duration-200 cursor-pointer active:scale-95">
+                            class="w-full md:w-auto h-14 px-[26px] py-4 bg-white shadow-[4px_6px_20px_rgba(109,109,120,0.08)] rounded-xl flex md:inline-flex justify-center items-center gap-2 hover:bg-slate-50 hover:shadow-md transition-all duration-200 cursor-pointer active:scale-95">
                             <span class="text-[#2C3642] text-[18px] font-sans font-bold leading-[26px]">
                                 Shop our collections
                             </span>
