@@ -1,1 +1,1 @@
-<img src="{{ asset('images/bbnl-logo.png') }}" alt="BusinessLabels" {{ $attributes }}>
+<img src="{{ asset('images/zeker-gemak-logo.png') }}" alt="Zeker Gemak" {{ $attributes }}>

@@ -213,7 +213,7 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
             return view('emails.reset-password', [
                 'user' => (object) ['name' => 'John Doe'],
                 'resetUrl' => 'http://businesslabels.test/password/reset/dummy-token',
-                'logoUrl' => asset('images/bbnl-logo.png'),
+                'logoUrl' => asset('images/zeker-gemak-logo.png'),
                 'appUrl' => config('app.url'),
             ]);
         })->name('emails.preview.reset-password');

@@ -71,7 +71,7 @@
 <div class="outer">
     <div class="logo-strip">
         <a href="{{ config('app.url') }}" target="_blank">
-            <img src="{{ $message->embed(public_path('images/bbnl-logo.png')) }}" alt="Business Labels">
+            <img src="{{ $message->embed(public_path('images/zeker-gemak-logo.png')) }}" alt="Zeker Gemak">
         </a>
     </div>
 

@@ -39,7 +39,7 @@
         ->filter(fn ($spec) => filled($spec['label'] ?? null) && filled($spec['value'] ?? null))
         ->values();
 
-    $logoPath = public_path('images/bbnl-logo.png');
+    $logoPath = public_path('images/zeker-gemak-logo.png');
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}">
