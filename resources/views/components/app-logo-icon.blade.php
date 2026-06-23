@@ -1,0 +1,1 @@
+<img src="{{ asset('images/bbnl-logo.png') }}" alt="BusinessLabels" {{ $attributes }}>

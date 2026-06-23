@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Vanilo\Adjustments\Models\AdjustmentTypeProxy;
+
+class OrderResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'number' => $this->number,
+            'status' => $this->status->value(),
+            'notes' => $this->notes,
+            'user_id' => $this->user_id,
+            'subtotal' => (float) $this->itemsTotal(),
+            'shipping_amount' => (float) $this->adjustments()->byType(AdjustmentTypeProxy::SHIPPING())->total(true),
+            'tax_amount' => (float) $this->adjustments()->byType(AdjustmentTypeProxy::TAX())->total(true),
+            'total' => (float) $this->total(),
+            'original_checkout_payload' => $this->original_checkout_payload,
+            'items' => $this->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'name' => $item->display_name,
+                    'price' => (float) $item->price,
+                    'quantity' => $item->quantity,
+                    'total' => (float) ($item->price * $item->quantity),
+                    'source_group_product_id' => $item->source_group_product_id,
+                    'source_group_product_name' => $item->source_group_product_name,
+                    'source_group_product_display_name' => $item->source_group_product_display_name,
+                    'source_group_product_sku' => $item->source_group_product_sku,
+                    'configuration' => $item->configuration,
+                ];
+            }),
+            'billing_address' => $this->billpayer ? [
+                'is_company' => (bool) $this->billpayer->is_company,
+                'company_name' => $this->billpayer->company_name,
+                'firstname' => $this->billpayer->firstname,
+                'lastname' => $this->billpayer->lastname,
+                'address' => $this->billpayer->address->address ?? null,
+                'city' => $this->billpayer->address->city ?? null,
+                'postalcode' => $this->billpayer->address->postalcode ?? null,
+                'country_id' => $this->billpayer->address->country_id ?? null,
+            ] : null,
+            'shipping_address' => $this->shippingAddress ? [
+                'name' => $this->shippingAddress->name,
+                'address' => $this->shippingAddress->address,
+                'city' => $this->shippingAddress->city,
+                'postalcode' => $this->shippingAddress->postalcode,
+                'country_id' => $this->shippingAddress->country_id,
+            ] : null,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
+    }
+}
