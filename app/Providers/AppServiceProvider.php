@@ -7,7 +7,6 @@ use App\Enums\OrderStatus;
 use App\Jobs\SendOrderEmailsJob;
 use App\Listeners\UpdateSalesFigures;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Post;
@@ -19,6 +18,7 @@ use App\Services\ElasticCatalogSearchGateway;
 use App\Services\SearchIndexInvalidator;
 use App\Support\ApiLocale;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -76,9 +76,23 @@ class AppServiceProvider extends ServiceProvider
             return $this->asset("resources/audio/{$asset}");
         });
 
+        OrderProxy::observe(OrderObserver::class);
+
+        config([
+            'vanilo.order.number.sequential_number' => [
+                'start_sequence_from' => 1,
+                'prefix' => 'PO-',
+                'pad_length' => 4,
+                'pad_string' => '0',
+            ],
+        ]);
+
         $this->app->concord->registerModel(
             ProductContract::class,
-            Product::class,
+            Product::class
+        );
+
+        $this->app->concord->registerModel(
             TaxonContract::class,
             Taxon::class
         );
@@ -98,35 +112,27 @@ class AppServiceProvider extends ServiceProvider
             MasterProduct::class
         );
 
-        OrderProxy::observe(OrderObserver::class);
-
-        config([
-            'vanilo.order.number.sequential_number' => [
-                'start_sequence_from' => 1,
-                'prefix' => 'PO-',
-                'pad_length' => 4,
-                'pad_string' => '0',
-            ],
+        Relation::morphMap([
+            'product' => Product::class,
+            'taxon' => Taxon::class,
+            'order' => Order::class,
+            'order_item' => OrderItem::class,
+            'master_product' => MasterProduct::class,
         ]);
     }
 
     protected function configureSearchIndexInvalidation(): void
     {
         $deletedProductDependencies = [];
-        $deletedMaterialDependencies = [];
         $deletedPrinterDependencies = [];
         $deletedTaxonDependencies = [];
 
         Product::saved(function (Product $product): void {
-            app(SearchIndexInvalidator::class)->reindexForProduct(
-                $product,
-                $product->wasChanged('material_id') ? (int) $product->getOriginal('material_id') : null
-            );
+            app(SearchIndexInvalidator::class)->reindexForProduct($product);
         });
 
         Product::deleting(function (Product $product) use (&$deletedProductDependencies): void {
             $deletedProductDependencies[$product->getKey()] = [
-                'material_id' => $product->material_id,
                 'printer_ids' => $product->printers()->pluck('posts.id')->all(),
             ];
         });
@@ -140,32 +146,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $invalidator = app(SearchIndexInvalidator::class);
-            $invalidator->reindexMaterials([$dependencies['material_id']]);
             $invalidator->reindexPrinters($dependencies['printer_ids']);
-        });
-
-        Material::saved(function (Material $material): void {
-            app(SearchIndexInvalidator::class)->reindexForMaterial($material);
-        });
-
-        Material::deleting(function (Material $material) use (&$deletedMaterialDependencies): void {
-            $deletedMaterialDependencies[$material->getKey()] = [
-                'product_ids' => $material->products()->pluck('id')->all(),
-                'master_product_ids' => $material->masterProducts()->pluck('id')->all(),
-            ];
-        });
-
-        Material::deleted(function (Material $material) use (&$deletedMaterialDependencies): void {
-            $dependencies = $deletedMaterialDependencies[$material->getKey()] ?? null;
-            unset($deletedMaterialDependencies[$material->getKey()]);
-
-            if ($dependencies === null) {
-                return;
-            }
-
-            $invalidator = app(SearchIndexInvalidator::class);
-            $invalidator->reindexProducts($dependencies['product_ids']);
-            $invalidator->reindexMasterProducts($dependencies['master_product_ids']);
         });
 
         Post::saved(function (Post $post): void {
@@ -199,7 +180,6 @@ class AppServiceProvider extends ServiceProvider
             $deletedTaxonDependencies[$taxon->getKey()] = [
                 'product_ids' => $rows->whereIn('model_type', [morph_type_of(Product::class), Product::class])->pluck('model_id')->all(),
                 'master_product_ids' => $rows->whereIn('model_type', [morph_type_of(MasterProduct::class), MasterProduct::class])->pluck('model_id')->all(),
-                'material_ids' => $rows->whereIn('model_type', [morph_type_of(Material::class), Material::class])->pluck('model_id')->all(),
             ];
         });
 
@@ -214,7 +194,6 @@ class AppServiceProvider extends ServiceProvider
             app(SearchIndexInvalidator::class)->reindexTaxonAssignmentTargets(
                 $dependencies['product_ids'],
                 $dependencies['master_product_ids'],
-                $dependencies['material_ids'],
             );
         });
 

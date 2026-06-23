@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\GroupProduct;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
@@ -38,38 +37,6 @@ it('reindexes a product when its translation changes', function () {
     expect($indexedKeys)->toContain('product_'.$product->id);
 });
 
-it('reindexes related products when a material changes', function () {
-    $material = catalog_test_material();
-    $product = catalog_test_product(['material_id' => $material->id]);
-    $indexedKeys = [];
-
-    fakeCatalogScoutEngine($indexedKeys);
-
-    $material->update(['title' => 'Updated PP Film']);
-
-    expect($indexedKeys)
-        ->toContain('material_'.$material->id)
-        ->toContain('product_'.$product->id);
-});
-
-it('reindexes related products when a material translation changes', function () {
-    $material = catalog_test_material();
-    $product = catalog_test_product(['material_id' => $material->id]);
-    $indexedKeys = [];
-
-    fakeCatalogScoutEngine($indexedKeys);
-
-    Translation::createForModel($material, 'en', [
-        'name' => 'English Film',
-        'slug' => 'english-film',
-        'title' => 'English Film',
-    ]);
-
-    expect($indexedKeys)
-        ->toContain('material_'.$material->id)
-        ->toContain('product_'.$product->id);
-});
-
 it('reindexes related products when a printer changes', function () {
     $product = catalog_test_product();
     $printer = Post::factory()->printer()->create();
@@ -103,12 +70,10 @@ it('reindexes related products when a printer translation changes', function () 
         ->toContain('product_'.$product->id);
 });
 
-it('reindexes assigned products and materials when a category translation changes', function () {
+it('reindexes assigned products when a category translation changes', function () {
     $taxon = catalog_test_taxon();
-    $material = catalog_test_material();
-    $product = catalog_test_product(['material_id' => $material->id]);
+    $product = catalog_test_product();
     $product->taxons()->attach($taxon->id);
-    $material->taxons()->attach($taxon->id);
     $indexedKeys = [];
 
     fakeCatalogScoutEngine($indexedKeys);
@@ -119,8 +84,7 @@ it('reindexes assigned products and materials when a category translation change
     ]);
 
     expect($indexedKeys)
-        ->toContain('product_'.$product->id)
-        ->toContain('material_'.$material->id);
+        ->toContain('product_'.$product->id);
 });
 
 it('can reindex affected records after product category pivots change', function () {
@@ -206,15 +170,6 @@ function catalog_test_product(array $attributes = []): Product
         'stock' => 5,
         'state' => 'active',
         'product_type' => 'simple',
-    ], $attributes));
-}
-
-function catalog_test_material(array $attributes = []): Material
-{
-    return Material::create(array_merge([
-        'title' => 'PP Film',
-        'slug' => 'pp-film-'.str()->random(8),
-        'status' => 'published',
     ], $attributes));
 }
 

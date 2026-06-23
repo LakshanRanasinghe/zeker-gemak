@@ -53,10 +53,6 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('printers/create', 'printers.create-update')->name('printers.create');
     Route::livewire('printers/{printer}/edit', 'printers.create-update')->name('printers.edit');
 
-    Route::livewire('materials', 'materials.index')->name('materials.index');
-    Route::livewire('materials/create', 'materials.create-update')->name('materials.create');
-    Route::livewire('materials/{material}/edit', 'materials.create-update')->name('materials.edit');
-
     Route::livewire('taxonomies', 'taxonomies.index')->name('taxonomies.index');
     Route::livewire('taxonomies/create', 'taxonomies.create-update')->name('taxonomies.create');
     Route::livewire('taxonomies/{taxonomy}/edit', 'taxonomies.create-update')->name('taxonomies.edit');

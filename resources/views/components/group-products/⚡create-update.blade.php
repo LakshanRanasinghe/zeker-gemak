@@ -4,7 +4,7 @@ use App\Concerns\HandlesWysiwygMedia;
 use App\Models\AiSetting;
 use App\Models\DiscountGroup;
 use App\Models\GroupProduct;
-use App\Models\Material;
+
 use App\Models\Product;
 use App\Services\ProductContentGenerator;
 use Flux\Flux;
@@ -93,7 +93,7 @@ new class extends Component {
     // Foreign keys
     public ?int $tax_category_id = null;
 
-    public ?int $material_id = null;
+
 
     public ?int $discount_group_id = null;
 
@@ -179,7 +179,7 @@ new class extends Component {
             'delivery_dates_in_stock' => 'nullable|integer|min:0',
             'packing_group' => 'nullable|integer|min:0',
             'tax_category_id' => 'nullable|exists:tax_categories,id',
-            'material_id' => 'nullable|exists:materials,id',
+
             'discount_group_id' => 'nullable|exists:discount_groups,id',
             'discount' => 'nullable|numeric|gte:0|max:100',
             'main_image' => 'nullable|image|max:10240',
@@ -229,7 +229,7 @@ new class extends Component {
             $this->delivery_dates_in_stock = $groupProduct->delivery_dates_in_stock;
             $this->packing_group = $groupProduct->packing_group;
             $this->tax_category_id = $groupProduct->tax_category_id;
-            $this->material_id = $groupProduct->material_id;
+
             $this->discount_group_id = $groupProduct->discount_group_id;
             $this->discount = (float) $groupProduct->discount;
 
@@ -408,7 +408,7 @@ new class extends Component {
             'delivery_dates_in_stock' => $this->delivery_dates_in_stock,
             'packing_group' => $this->packing_group,
             'tax_category_id' => $this->tax_category_id,
-            'material_id' => $this->material_id,
+
             'discount_group_id' => $this->discount_group_id,
             'discount' => $this->discount,
         ];
@@ -553,12 +553,12 @@ new class extends Component {
         $this->aiRowStatus = ['en' => [], 'nl' => []];
         $this->aiRowErrors = ['en' => [], 'nl' => []];
 
-        $settings = AiSetting::current(AiSetting::SCOPE_GROUP_PRODUCT);
+        $defaults = AiSetting::defaults(AiSetting::SCOPE_GROUP_PRODUCT);
         $allowed = $this->aiGeneratableFields();
 
         $this->aiSelections = [
-            'en' => array_values(array_intersect((array) $settings->default_fields_en, $allowed)),
-            'nl' => array_values(array_intersect((array) $settings->default_fields_nl, $allowed)),
+            'en' => array_values(array_intersect((array) ($defaults['default_fields_en'] ?? []), $allowed)),
+            'nl' => array_values(array_intersect((array) ($defaults['default_fields_nl'] ?? []), $allowed)),
         ];
 
         $this->aiHasContent = $this->aiHasContentMap();
@@ -844,11 +844,7 @@ new class extends Component {
         return TaxCategory::where('is_active', true)->orderBy('name')->get();
     }
 
-    #[Computed]
-    public function materials()
-    {
-        return Material::orderBy('title')->get();
-    }
+
 
     #[Computed]
     public function discount_groups()

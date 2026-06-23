@@ -55,8 +55,8 @@ class ProductResource extends JsonResource
             'in_stock' => $this->stockValue() > 0,
             'excerpt' => $this->translatedString('excerpt', $this->resource->excerpt),
             'main_image' => $this->mainImageUrl(),
-            'material_id' => $this->rawValue('material_id') !== null ? (int) $this->rawValue('material_id') : null,
-            'material' => $this->materialValue(),
+            'material_id' => null,
+            'material' => null,
             'categories' => CategoryResource::collection($this->whenLoaded('taxons')),
             'meta' => $this->metaValues(),
             'properties' => $this->propertyValues(),
@@ -86,10 +86,10 @@ class ProductResource extends JsonResource
                 $this->variantValues()
             ),
             'discounts' => $this->resource->discount_group?->discounts,
-            'up_sells' => $this->when($detailRoute, fn() => $this->relatedProductSummaries('upSells')),
-            'cross_sells' => $this->when($detailRoute, fn() => $this->relatedProductSummaries('crossSells')),
-            'suitable_printers' => $this->when($detailRoute, fn() => $this->relatedProductSummaries('suitablePrinters')),
-            'printer_finder_id' => $this->when($detailRoute, fn() => $this->resolvePrinterFinderId()),
+            'up_sells' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('upSells')),
+            'cross_sells' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('crossSells')),
+            'suitable_printers' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('suitablePrinters')),
+            'printer_finder_id' => $this->when($detailRoute, fn () => $this->resolvePrinterFinderId()),
             'warrantyAvailable' => $this->warrantyAvailable(),
             'warrantyOptions' => $this->warrantyOptionsPayload(),
             'warranty' => $this->warrantyPayload(),
@@ -108,7 +108,7 @@ class ProductResource extends JsonResource
 
     protected function warrantyPayload(): array
     {
-        if (!$this->resource instanceof Product) {
+        if (! $this->resource instanceof Product) {
             return [
                 'is_available' => false,
                 'has_options' => false,
@@ -136,18 +136,18 @@ class ProductResource extends JsonResource
 
     protected function warrantyOptionsPayload(?Collection $options = null): array
     {
-        if (!$this->resource instanceof Product) {
+        if (! $this->resource instanceof Product) {
             return [];
         }
 
         $options ??= $this->activeWarrantyOptions();
 
-        return $options->map(fn($option) => $this->warrantyOptionPayload($option))->values()->all();
+        return $options->map(fn ($option) => $this->warrantyOptionPayload($option))->values()->all();
     }
 
     protected function activeWarrantyOptions(): Collection
     {
-        if (!$this->resource instanceof Product) {
+        if (! $this->resource instanceof Product) {
             return collect();
         }
 
@@ -181,7 +181,7 @@ class ProductResource extends JsonResource
 
     protected function warrantyCartSku(int $optionId, int $durationMonths): string
     {
-        $baseSku = (string) ($this->resource->sku ?: $this->resource->article_number ?: 'product-' . $this->resource->getKey());
+        $baseSku = (string) ($this->resource->sku ?: $this->resource->article_number ?: 'product-'.$this->resource->getKey());
         $normalizedSku = Str::upper(Str::slug($baseSku, '-'));
 
         return sprintf('%s-WAR-%dM-%d', $normalizedSku, $durationMonths, $optionId);
@@ -189,7 +189,7 @@ class ProductResource extends JsonResource
 
     protected function relatedProductSummaries(string $relation): array
     {
-        if ($this->resource instanceof MasterProduct || !method_exists($this->resource, $relation)) {
+        if ($this->resource instanceof MasterProduct || ! method_exists($this->resource, $relation)) {
             return [];
         }
 
@@ -206,7 +206,7 @@ class ProductResource extends JsonResource
                 'price' => $product->price !== null ? (float) $product->price : null,
                 'original_price' => $product->getRawOriginal('original_price') !== null ? (float) $product->getRawOriginal('original_price') : null,
                 'main_image' => ($url = $product->getFirstMediaUrl('main')) !== '' ? $url : null,
-            ], static fn($value) => $value !== null);
+            ], static fn ($value) => $value !== null);
         })->values()->all();
     }
 
@@ -224,17 +224,17 @@ class ProductResource extends JsonResource
             ? $this->resource->getRawOriginal('slug')
             : ($this->resource->slug ?? null);
 
-        if (!$slug) {
+        if (! $slug) {
             return null;
         }
 
-        $url = rtrim((string) config('app.frontend_url'), '/') . '/product/' . $slug . '/';
+        $url = rtrim((string) config('app.frontend_url'), '/').'/product/'.$slug.'/';
 
         $id = Post::query()
             ->where('post_type', 'printer')
             ->whereHas('propertyValues', function ($query) use ($url) {
                 $query->where('property_values.value', $url)
-                    ->whereHas('property', fn($property) => $property->where('slug', 'printer-url'));
+                    ->whereHas('property', fn ($property) => $property->where('slug', 'printer-url'));
             })
             ->value('id');
 
@@ -257,12 +257,12 @@ class ProductResource extends JsonResource
     protected function apiPathById(): string
     {
         if ($this->resource instanceof GroupProduct) {
-            return '/api/group-products/' . (int) $this->resource->getKey();
+            return '/api/group-products/'.(int) $this->resource->getKey();
         }
 
         $type = $this->resource instanceof MasterProduct ? 'variable' : 'simple';
 
-        return '/api/products/' . $type . '/' . (int) $this->resource->getKey();
+        return '/api/products/'.$type.'/'.(int) $this->resource->getKey();
     }
 
     protected function apiPathBySlug(): string
@@ -270,12 +270,12 @@ class ProductResource extends JsonResource
         $slug = (string) ($this->resource->slug ?? '');
 
         if ($this->resource instanceof GroupProduct) {
-            return '/api/group-products/slug/' . $slug;
+            return '/api/group-products/slug/'.$slug;
         }
 
         $type = $this->resource instanceof MasterProduct ? 'variable' : 'simple';
 
-        return '/api/products/' . $type . '/slug/' . $slug;
+        return '/api/products/'.$type.'/slug/'.$slug;
     }
 
     protected function titleValue(): string
@@ -340,56 +340,34 @@ class ProductResource extends JsonResource
 
     protected function metaValues(): array
     {
-        if (!$this->resource->relationLoaded('metas')) {
+        if (! $this->resource->relationLoaded('metas')) {
             return [];
         }
 
         return $this->resource->metas
-            ->filter(fn($meta) => filled($meta->meta_key) && $meta->meta_value !== null)
-            ->mapWithKeys(fn($meta) => [$meta->meta_key => $meta->meta_value])
+            ->filter(fn ($meta) => filled($meta->meta_key) && $meta->meta_value !== null)
+            ->mapWithKeys(fn ($meta) => [$meta->meta_key => $meta->meta_value])
             ->all();
     }
 
     protected function propertyValues(): array
     {
-        if (!$this->resource->relationLoaded('propertyValues')) {
+        if (! $this->resource->relationLoaded('propertyValues')) {
             return [];
         }
 
         return $this->resource->propertyValues
-            ->filter(fn($propertyValue) => $propertyValue->property !== null)
-            ->groupBy(fn($propertyValue) => str($propertyValue->property->slug ?: $propertyValue->property->name)->slug()->toString())
-            ->map(fn(Collection $values) => $values
-                ->map(fn($propertyValue) => [
+            ->filter(fn ($propertyValue) => $propertyValue->property !== null)
+            ->groupBy(fn ($propertyValue) => str($propertyValue->property->slug ?: $propertyValue->property->name)->slug()->toString())
+            ->map(fn (Collection $values) => $values
+                ->map(fn ($propertyValue) => [
                     'value' => (string) $propertyValue->value,
                     'title' => (string) ($propertyValue->title ?: $propertyValue->value),
                 ])
-                ->unique(fn(array $value) => $value['value'] . '|' . $value['title'])
+                ->unique(fn (array $value) => $value['value'].'|'.$value['title'])
                 ->values()
                 ->all())
             ->all();
-    }
-
-    protected function materialValue(): ?array
-    {
-        if (!$this->resource->relationLoaded('material') || !$this->resource->material) {
-            return null;
-        }
-
-        $material = $this->resource->material;
-        $category = $material->relationLoaded('category') ? $material->category : null;
-
-        return array_filter([
-            'id' => (int) $material->id,
-            'title' => $this->localizedString($material, 'title', $material->title),
-            'slug' => $this->localizedString($material, 'slug', $material->slug),
-            'subtitle' => $this->localizedString($material, 'subtitle', $material->subtitle),
-            'category' => $category ? array_filter([
-                'id' => (int) $category->id,
-                'name' => $this->localizedString($category, 'name', $category->name),
-                'slug' => $this->localizedString($category, 'slug', $category->slug),
-            ], static fn($value) => $value !== null && $value !== '') : null,
-        ], static fn($value) => $value !== null && $value !== '');
     }
 
     protected function translatedString(string $field, ?string $fallback = null): ?string
@@ -399,7 +377,7 @@ class ProductResource extends JsonResource
 
     protected function localizedString(object $model, string $field, mixed $fallback = null): ?string
     {
-        if (!$model instanceof Model) {
+        if (! $model instanceof Model) {
             return $fallback !== null ? (string) $fallback : null;
         }
 
@@ -408,13 +386,13 @@ class ProductResource extends JsonResource
 
     protected function variantValues(): array
     {
-        if (!$this->resource instanceof MasterProduct || !$this->resource->relationLoaded('variants')) {
+        if (! $this->resource instanceof MasterProduct || ! $this->resource->relationLoaded('variants')) {
             return [];
         }
 
         return $this->resource->variants->map(function ($variant) {
             $attributes = $variant->relationLoaded('propertyValues')
-                ? $variant->propertyValues->mapWithKeys(fn($propertyValue) => [
+                ? $variant->propertyValues->mapWithKeys(fn ($propertyValue) => [
                     $propertyValue->property?->name ?? $propertyValue->property?->slug ?? 'attribute' => $propertyValue->title ?? $propertyValue->value,
                 ])->all()
                 : [];
@@ -442,7 +420,7 @@ class ProductResource extends JsonResource
     protected function galleryImages(): array
     {
         return $this->resource->getMedia('gallery')
-            ->map(fn($media) => [
+            ->map(fn ($media) => [
                 'id' => $media->id,
                 'name' => $media->name,
                 'file_name' => $media->file_name,
@@ -458,6 +436,6 @@ class ProductResource extends JsonResource
             ? $this->resource->taxons
             : $this->resource->taxons()->get(['slug']);
 
-        return $taxons->contains(fn($taxon) => str_contains((string) $taxon->slug, 'label'));
+        return $taxons->contains(fn ($taxon) => str_contains((string) $taxon->slug, 'label'));
     }
 }

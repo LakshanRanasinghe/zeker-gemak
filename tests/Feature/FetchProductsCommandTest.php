@@ -3,6 +3,7 @@
 use App\Jobs\SyncWooCommerceProductsJob;
 use App\Models\DiscountGroup;
 use App\Models\Product;
+use App\Models\Taxon;
 use App\Models\WooCommerceCategoryTaxonMapping;
 use App\Services\OptimizedWooCommerceProductSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
-use Vanilo\Foundation\Models\Taxon;
 use Vanilo\Foundation\Models\Taxonomy;
 
 use function Pest\Laravel\artisan;

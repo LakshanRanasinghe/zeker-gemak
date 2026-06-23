@@ -225,11 +225,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             ?? (string) ($this->getRawOriginal('ext_title') ?? $this->getRawOriginal('name') ?? '');
     }
 
-    public function material()
-    {
-        return $this->belongsTo(Material::class);
-    }
-
     public function printers()
     {
         return $this->belongsToMany(Post::class, 'printer_product', 'product_id', 'printer_id')
@@ -365,17 +360,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                 'delivery_dates_no_stock' => ['type' => 'integer'],
                 'packing_group' => ['type' => 'integer'],
                 'allow_singulars' => ['type' => 'boolean'],
-                'material_id' => ['type' => 'integer'],
-                'material_ids' => ['type' => 'integer'],
-                'material' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'id' => ['type' => 'integer'],
-                        'title' => ['type' => 'text'],
-                        'slug' => ['type' => 'keyword'],
-                        'subtitle' => ['type' => 'text'],
-                    ],
-                ],
+
                 'dimensions' => [
                     'type' => 'object',
                     'properties' => [
@@ -393,8 +378,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                     'type' => 'object',
                     'dynamic' => true,
                 ],
-                'material_taxon_ids' => ['type' => 'integer'],
-                'material_taxon_slugs' => ['type' => 'keyword'],
+
                 'category_ids' => ['type' => 'integer'],
                 'category_slugs' => ['type' => 'keyword'],
                 'category_slugs_nl' => ['type' => 'keyword'],
@@ -455,10 +439,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                     'type' => 'object',
                     'enabled' => false,
                 ],
-                'material_translations' => [
-                    'type' => 'object',
-                    'enabled' => false,
-                ],
+
                 'created_at' => ['type' => 'date'],
                 'updated_at' => ['type' => 'date'],
                 'created_at_timestamp' => ['type' => 'long'],
@@ -473,14 +454,12 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         $name = $this->rawString('name');
         $title = $this->rawString('title') ?: $name;
         $mainImage = $this->mainImageUrlForSearch();
-        $materialValues = $this->materialValuesForSearch();
         $propertyValues = $this->propertyValuesForSearch();
         $indexablePropertyValues = $this->indexablePropertyValuesForSearch($propertyValues);
+        $catalogMaterial = CatalogFacetNormalizer::materialNamesFromProperties($propertyValues);
         $properties = $this->propertyTextsForSearch($indexablePropertyValues);
         $propertyNumbers = $this->propertyNumbersForSearch($propertyValues);
         $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, $this->rawString('make'));
-        $catalogMaterial = CatalogFacetNormalizer::materialNamesFromProperties($propertyValues)
-            ?: CatalogFacetNormalizer::materialNames($this->materialTitlesForSearch());
 
         return array_filter([
             'id' => (int) $this->getKey(),
@@ -535,8 +514,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'catalog_material_code' => CatalogFacetNormalizer::materialCodes($propertyValues),
             'catalog_material' => $catalogMaterial,
             'compatible_brands' => CatalogFacetNormalizer::compatibleBrands($propertyValues, $catalogBrand),
-            ...$materialValues,
-            'material' => $this->materialResourceValueForSearch(),
             'category_ids' => $this->taxonIdsForSearch(),
             'category_slugs' => $this->taxonSlugsForSearch(),
             'category_slugs_nl' => $this->localizedTaxonValuesForSearch('slug', 'nl'),
@@ -568,9 +545,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
     {
         return $query->with([
             'translations:id,translatable_type,translatable_id,language,fields',
-            'material:id,title,slug,subtitle',
-            'material.taxons:id,slug',
-            'material.translations:id,translatable_type,translatable_id,language,fields',
             'propertyValues.property:id,slug,name',
             'taxons:id,slug,parent_id,name',
             'taxons.media',
@@ -587,9 +561,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
     {
         return $models->load([
             'translations:id,translatable_type,translatable_id,language,fields',
-            'material:id,title,slug,subtitle',
-            'material.taxons:id,slug',
-            'material.translations:id,translatable_type,translatable_id,language,fields',
             'propertyValues.property:id,slug,name',
             'taxons:id,slug,parent_id,name',
             'taxons.media',
@@ -627,55 +598,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         ];
     }
 
-    protected function materialValuesForSearch(): array
-    {
-        $material = $this->relationLoaded('material')
-            ? $this->material
-            : $this->material()->with('taxons:id,slug')->first(['id', 'title', 'slug']);
-
-        if (! $material) {
-            return [];
-        }
-
-        $taxons = $material->relationLoaded('taxons') ? $material->taxons : $material->taxons()->get(['id', 'slug']);
-
-        $materialTranslations = $material->translations->map(function ($translation) use ($material) {
-            $locale = $translation->language;
-
-            return [
-                $locale => [
-                    'title' => LocalizedModelValue::string($material, 'title', null, $locale),
-                ],
-            ];
-        });
-
-        return array_filter([
-            'material_id' => (int) $material->id,
-            'material_ids' => [(int) $material->id],
-            'material_taxon_ids' => $taxons->map(fn ($taxon) => (int) $taxon->id)->values()->all(),
-            'material_taxon_slugs' => $taxons->flatMap(fn ($taxon) => $this->localizedSearchStrings($taxon, 'slug', (string) $taxon->slug))->filter()->unique()->values()->all(),
-            'material_translations' => $materialTranslations,
-        ], static fn ($value) => $value !== null && $value !== []);
-    }
-
-    protected function materialResourceValueForSearch(): ?array
-    {
-        $material = $this->relationLoaded('material')
-            ? $this->material
-            : $this->material()->first(['id', 'title', 'slug', 'subtitle']);
-
-        if (! $material) {
-            return null;
-        }
-
-        return array_filter([
-            'id' => (int) $material->id,
-            'title' => $this->translatedStringForSearch('title', (string) $material->title, $material),
-            'slug' => $this->translatedStringForSearch('slug', (string) $material->slug, $material),
-            'subtitle' => $this->translatedStringForSearch('subtitle', (string) $material->subtitle, $material),
-        ], static fn ($value) => $value !== null && $value !== '');
-    }
-
     protected function dimensionsForSearch(): array
     {
         return array_filter([
@@ -691,19 +613,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         $taxons = $this->relationLoaded('taxons') ? $this->taxons : $this->taxons()->get(['slug']);
 
         return $taxons->contains(fn ($taxon): bool => str_contains((string) $taxon->slug, 'label'));
-    }
-
-    protected function materialTitlesForSearch(): array
-    {
-        $material = $this->relationLoaded('material')
-            ? $this->material
-            : $this->material()->first(['id', 'title', 'slug']);
-
-        if (! $material) {
-            return [];
-        }
-
-        return $this->localizedSearchStrings($material, 'title', (string) $material->title);
     }
 
     protected function propertyTextsForSearch(array $propertyValues): array

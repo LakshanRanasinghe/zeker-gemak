@@ -67,14 +67,7 @@
                             :current="request()->routeIs('warranty-groups.*')" wire:navigate>
                             {{ __('Warranty Groups') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="cube" :href="route('materials.index')"
-                            :current="request()->routeIs('materials.*')" wire:navigate>
-                            {{ __('Materials') }}
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="printer" :href="route('printers.index')"
-                            :current="request()->routeIs('printers.index')" wire:navigate>
-                            {{ __('Printers') }}
-                        </flux:sidebar.item>
+
                         <flux:sidebar.item icon="tag" :href="route('taxonomies.index')"
                             :current="request()->routeIs('taxonomies.*')" wire:navigate>
                             {{ __('Taxonomies') }}
@@ -98,14 +91,8 @@
                             :current="request()->routeIs('settings.*')" wire:navigate>
                             {{ __('Settings') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="sparkles" :href="route('ai-settings.index')"
-                            :current="request()->routeIs('ai-settings.*')" wire:navigate>
-                            {{ __('AI Content') }}
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="calendar" :href="route('availability.index')"
-                            :current="request()->routeIs('availability.*')" wire:navigate>
-                            {{ __('Availability') }}
-                        </flux:sidebar.item>
+
+
                     </flux:sidebar.group>
 
                     <flux:sidebar.group :heading="__('CMS')" class="grid">

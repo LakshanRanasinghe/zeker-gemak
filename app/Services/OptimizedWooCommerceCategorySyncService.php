@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Product;
 use App\Models\Taxon;
 use App\Models\WooCommerceCategoryTaxonMapping;
@@ -40,6 +39,8 @@ class OptimizedWooCommerceCategorySyncService
 {
     /** @var string Source identifier for WooCommerce */
     private const SOURCE = 'woocommerce';
+
+    private const PRIMARY_LOCALE = 'nl';
 
     /** @var string Name of the Vanilo taxonomy for categories */
     private const TAXONOMY_NAME = 'Category';
@@ -209,7 +210,7 @@ class OptimizedWooCommerceCategorySyncService
         $translationCache = $this->preloadSecondaryTranslations([$category], $log);
 
         // Import the category within a transaction
-        return DB::transaction(function () use ($category, $taxonomy, $parentTaxonId, $log) {
+        return DB::transaction(function () use ($category, $taxonomy, $parentTaxonId, $log, $translationCache) {
             $mappings = $this->getExistingMappings();
             $stats = $this->initializeStats(1, 1);
 
@@ -303,7 +304,6 @@ class OptimizedWooCommerceCategorySyncService
         app(SearchIndexInvalidator::class)->reindexTaxonAssignmentTargets(
             $staleTaxonRows->whereIn('model_type', [morph_type_of(Product::class), Product::class])->pluck('model_id'),
             $staleTaxonRows->whereIn('model_type', [morph_type_of(MasterProduct::class), MasterProduct::class])->pluck('model_id'),
-            $staleTaxonRows->whereIn('model_type', [morph_type_of(Material::class), Material::class])->pluck('model_id'),
         );
 
         Cache::forget($this->getMappingCacheKey());
@@ -459,8 +459,6 @@ class OptimizedWooCommerceCategorySyncService
             $stats['created']++;
             $log('info', "Created taxon #{$taxon->id} for Woo category #{$woocommerceCategoryId} ({$category['name']})");
 
-            $this->syncEnglishTranslation($taxon, $englishCategory);
-
             return;
         }
 
@@ -504,7 +502,7 @@ class OptimizedWooCommerceCategorySyncService
         }
 
         if ($translationNeedsUpdate) {
-            $this->syncEnglishTranslation($taxon, $englishCategory);
+            $this->syncCategoryTranslations($taxon, $category, $translationCache, $log);
         }
 
         $stats['updated']++;
@@ -570,6 +568,10 @@ class OptimizedWooCommerceCategorySyncService
     ): void {
         $name = (string) $data['name'];
         $slug = (string) $data['slug'];
+
+        if ($locale === 'en') {
+            $slug = $this->uniqueEnglishTranslationSlug($taxon, $slug);
+        }
         $fields = [
             'meta_title' => $data['meta_title'] ?? null,
             'meta_description' => $data['meta_description'] ?? null,
@@ -827,6 +829,26 @@ class OptimizedWooCommerceCategorySyncService
         }
 
         return (int) $translations['nl'] === (int) ($category['id'] ?? 0);
+    }
+
+    /**
+     * Preload other-language category siblings into a cached locale-based structure.
+     *
+     * @return array<string, array<int, array>>
+     */
+    private function preloadSecondaryTranslations(array $categories, callable $log): array
+    {
+        $this->preloadEnglishCategories($categories, $log);
+
+        $cache = [
+            'en' => [],
+        ];
+
+        foreach ($this->englishCategoryCache as $id => $category) {
+            $cache['en'][(int) $id] = $category;
+        }
+
+        return $cache;
     }
 
     private function preloadEnglishCategories(array $categories, callable $log): void

@@ -232,7 +232,7 @@ class ProductExport implements FromCollection, WithHeadings
     {
         $query = Product::query()
             ->whereNull('deleted_at')
-            ->with(['metas', 'material', 'taxons', 'media']);
+            ->with(['metas', 'taxons', 'media']);
 
         if ($this->locale !== 'en') {
             $query->with('translations');
@@ -254,7 +254,6 @@ class ProductExport implements FromCollection, WithHeadings
             ->whereNull('deleted_at')
             ->with([
                 'metas',
-                'material',
                 'taxons',
                 'media',
                 'variants' => fn ($q) => $q->with('propertyValues.property'),
@@ -292,7 +291,7 @@ class ProductExport implements FromCollection, WithHeadings
             $product->price,
             $product->original_price,
             $product->stock,
-            $product->material?->title ?? '',
+            '',
             $this->resolveCategories($product),
             $product->product_template ?? '',
         ]);
@@ -340,7 +339,7 @@ class ProductExport implements FromCollection, WithHeadings
             $master->price,
             $master->original_price,
             '', // Stock (master level)
-            $master->material?->title ?? '',
+            '',
             $this->resolveCategories($master),
             $master->product_template ?? '',
         ]);

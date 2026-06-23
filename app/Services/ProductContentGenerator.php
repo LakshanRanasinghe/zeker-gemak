@@ -46,7 +46,7 @@ class ProductContentGenerator
             return [];
         }
 
-        $settings = AiSetting::current($scope);
+        $settings = new AiSetting(AiSetting::defaults($scope));
         $systemPrompt = $this->buildSystemPrompt($settings, $locale, $scope);
         $userPrompt = $this->buildUserPrompt($fields, $context);
 

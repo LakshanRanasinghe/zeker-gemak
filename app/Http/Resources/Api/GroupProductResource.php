@@ -21,8 +21,8 @@ class GroupProductResource extends JsonResource
             'model_id' => (int) $this->resource->getKey(),
             'type' => 'group_product',
             'is_group_product' => true,
-            'api_path_by_id' => '/api/group-products/' . (int) $this->resource->getKey(),
-            'api_path_by_slug' => '/api/group-products/slug/' . (string) ($this->resource->slug ?? ''),
+            'api_path_by_id' => '/api/group-products/'.(int) $this->resource->getKey(),
+            'api_path_by_slug' => '/api/group-products/slug/'.(string) ($this->resource->slug ?? ''),
             'title' => $this->titleValue(),
             'name' => $this->translatedString('name', $this->resource->name),
             'subtitle' => $this->translatedString('subtitle', $this->rawValue('subtitle')),
@@ -38,8 +38,8 @@ class GroupProductResource extends JsonResource
             'in_stock' => $this->computedStockValue() > 0,
             'excerpt' => $this->translatedString('excerpt', $this->resource->excerpt),
             'main_image' => $this->mainImageUrl(),
-            'material_id' => $this->rawValue('material_id') !== null ? (int) $this->rawValue('material_id') : null,
-            'material' => $this->materialValue(),
+            'material_id' => null,
+            'material' => null,
             'categories' => CategoryResource::collection($this->whenLoaded('taxons')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
@@ -62,7 +62,7 @@ class GroupProductResource extends JsonResource
             'gallery_images' => $this->when($detailRoute, $this->galleryImages()),
             'component_products' => $this->when($detailRoute, $this->componentProducts()),
             'discounts' => $this->resource->discount_group?->first()?->discounts,
-            'discount' => $this->resource->discount
+            'discount' => $this->resource->discount,
         ];
     }
 
@@ -108,31 +108,9 @@ class GroupProductResource extends JsonResource
         return $value !== '' ? $value : null;
     }
 
-    protected function materialValue(): ?array
-    {
-        if (!$this->resource->relationLoaded('material') || !$this->resource->material) {
-            return null;
-        }
-
-        $material = $this->resource->material;
-        $category = $material->relationLoaded('category') ? $material->category : null;
-
-        return array_filter([
-            'id' => (int) $material->id,
-            'title' => $this->localizedString($material, 'title', $material->title),
-            'slug' => $this->localizedString($material, 'slug', $material->slug),
-            'subtitle' => $this->localizedString($material, 'subtitle', $material->subtitle),
-            'category' => $category ? array_filter([
-                'id' => (int) $category->id,
-                'name' => $this->localizedString($category, 'name', $category->name),
-                'slug' => $this->localizedString($category, 'slug', $category->slug),
-            ], static fn($value) => $value !== null && $value !== '') : null,
-        ], static fn($value) => $value !== null && $value !== '');
-    }
-
     protected function componentProducts(): array
     {
-        if (!$this->resource->relationLoaded('items')) {
+        if (! $this->resource->relationLoaded('items')) {
             return [];
         }
 
@@ -160,7 +138,7 @@ class GroupProductResource extends JsonResource
 
     protected function localizedString(object $model, string $field, mixed $fallback = null): ?string
     {
-        if (!$model instanceof Model) {
+        if (! $model instanceof Model) {
             return $fallback !== null ? (string) $fallback : null;
         }
 
@@ -177,7 +155,7 @@ class GroupProductResource extends JsonResource
     protected function galleryImages(): array
     {
         return $this->resource->getMedia('gallery')
-            ->map(fn($media) => [
+            ->map(fn ($media) => [
                 'id' => $media->id,
                 'name' => $media->name,
                 'file_name' => $media->file_name,

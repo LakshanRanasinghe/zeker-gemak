@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Product;
+use App\Models\Taxon;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -11,7 +12,6 @@ use Laravel\Scout\Builder;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\Engines\Engine;
 use Livewire\Livewire;
-use Vanilo\Foundation\Models\Taxon;
 use Vanilo\Foundation\Models\Taxonomy;
 use Vanilo\Translation\Models\Translation;
 

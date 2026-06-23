@@ -481,6 +481,9 @@ function fakeWooCategoryTranslations(array $nl, array $en): void
 
 it('imports the English sibling (via the translations map) as a Translation, NL on base columns', function () {
     Queue::fake();
+    Artisan::shouldReceive('call')
+        ->with('app:cleanup-taxons')
+        ->andReturn(0);
 
     // NL is the main/primary language → base columns; EN → Translation row.
     Config::set('app.locale', 'nl');
@@ -542,6 +545,9 @@ it('imports the English sibling (via the translations map) as a Translation, NL 
 
 it('updates the English translation on a re-sync when the EN data changes', function () {
     Queue::fake();
+    Artisan::shouldReceive('call')
+        ->with('app:cleanup-taxons')
+        ->andReturn(0);
 
     Config::set('app.locale', 'nl');
     Config::set('app.main_locale', 'nl');
@@ -594,6 +600,9 @@ it('updates the English translation on a re-sync when the EN data changes', func
 
 it('imports NL only and creates no translation when a category has no translations map', function () {
     Queue::fake();
+    Artisan::shouldReceive('call')
+        ->with('app:cleanup-taxons')
+        ->andReturn(0);
 
     Config::set('app.locale', 'nl');
     Config::set('app.main_locale', 'nl');

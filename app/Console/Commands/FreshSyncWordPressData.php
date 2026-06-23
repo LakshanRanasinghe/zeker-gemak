@@ -2,11 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SyncWooCommerceMaterialCategoriesJob;
-use App\Jobs\SyncWooCommerceMaterialsJob;
 use App\Jobs\SyncWooCommercePrintersJob;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
@@ -63,9 +60,6 @@ class FreshSyncWordPressData extends Command
         $this->components->info('Syncing printers...');
         $this->syncPrinters($chunkSize, $delayMs, $skipMedia);
 
-        $this->components->info('Syncing materials...');
-        $this->syncMaterials($chunkSize, $delayMs);
-
         $this->components->info('Syncing categories...');
         $this->syncCategories($categorySyncService, $chunkSize, $logger);
 
@@ -93,7 +87,7 @@ class FreshSyncWordPressData extends Command
         $importedMorphTypes = [
             morph_type_of(Product::class),
             morph_type_of(MasterProduct::class),
-            morph_type_of(Material::class),
+
             morph_type_of(Post::class),
             morph_type_of(Taxon::class),
             'taxon',
@@ -167,7 +161,7 @@ class FreshSyncWordPressData extends Command
             'products',
             'master_product_variants',
             'master_products',
-            'materials',
+
             'property_values',
             'discount_groups',
             'taxons',
@@ -199,54 +193,6 @@ class FreshSyncWordPressData extends Command
             $this->line("  Page {$page}: {$synced} printers");
             $page++;
             $batch++;
-        } while ($synced === $chunkSize);
-    }
-
-    private function syncMaterials(int $chunkSize, int $delayMs): void
-    {
-        $this->syncMaterialCategories($chunkSize);
-
-        $page = 1;
-
-        do {
-            $stats = (new SyncWooCommerceMaterialsJob(
-                page: $page,
-                perPage: $chunkSize,
-                batch: $page,
-                locale: 'nl',
-                delayMs: $delayMs,
-                queueNext: false,
-            ))->handle();
-
-            if (! (bool) ($stats['success'] ?? false)) {
-                throw new \RuntimeException("Material sync failed for nl on page {$page}.");
-            }
-
-            $synced = (int) ($stats['synced'] ?? 0);
-            $this->line("  nl page {$page}: {$synced} materials");
-            $page++;
-        } while ($synced === $chunkSize);
-    }
-
-    private function syncMaterialCategories(int $chunkSize): void
-    {
-        $page = 1;
-
-        do {
-            $stats = (new SyncWooCommerceMaterialCategoriesJob(
-                page: $page,
-                pageSize: $chunkSize,
-                batch: $page,
-                queueNext: false,
-            ))->handle();
-
-            if (! (bool) ($stats['success'] ?? false)) {
-                throw new \RuntimeException("Material category sync failed on page {$page}.");
-            }
-
-            $synced = (int) ($stats['synced'] ?? 0);
-            $this->line("  Material category page {$page}: {$synced} categories");
-            $page++;
         } while ($synced === $chunkSize);
     }
 

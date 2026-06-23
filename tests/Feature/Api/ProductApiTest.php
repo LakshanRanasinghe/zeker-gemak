@@ -3,7 +3,6 @@
 use App\Contracts\CatalogSearchGateway;
 use App\Models\GroupProduct;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
@@ -21,18 +20,9 @@ beforeEach(function () {
     Config::set('scout.driver', 'elastic');
     Config::set('scout.prefix', 'business_labels_');
 
-    Product::disableSearchSyncing();
-    GroupProduct::disableSearchSyncing();
-    MasterProduct::disableSearchSyncing();
-    Material::disableSearchSyncing();
-    Post::disableSearchSyncing();
-});
-
-afterEach(function () {
     Product::enableSearchSyncing();
     GroupProduct::enableSearchSyncing();
     MasterProduct::enableSearchSyncing();
-    Material::enableSearchSyncing();
     Post::enableSearchSyncing();
 });
 
@@ -128,10 +118,6 @@ if (! function_exists('attachApiProductPropertyValues')) {
 }
 
 it('returns a unified product listing and applies category and meta filters', function () {
-    $material = Material::create([
-        'title' => 'Thermal Paper',
-        'slug' => 'thermal-paper',
-    ]);
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -165,7 +151,6 @@ it('returns a unified product listing and applies category and meta filters', fu
         'price' => 10,
         'original_price' => 12,
         'stock' => 8,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -200,8 +185,6 @@ it('returns a unified product listing and applies category and meta filters', fu
         ->assertJsonPath('data.0.type', 'simple')
         ->assertJsonPath('data.0.slug', 'zebra-label')
         ->assertJsonPath('data.0.article_number', 'ART-LBL-001')
-        ->assertJsonPath('data.0.material_id', $material->id)
-        ->assertJsonPath('data.0.material.slug', 'thermal-paper')
         ->assertJsonPath('data.0.properties.afwerking.0.value', 'glossy')
         ->assertJsonPath('meta.total', 1);
 });
@@ -265,10 +248,6 @@ it('supports english sidebar aliases and range filters for product metas', funct
 });
 
 it('returns a product by type and id', function () {
-    $material = Material::create([
-        'title' => 'Shipping Film',
-        'slug' => 'shipping-film',
-    ]);
 
     $product = Product::create([
         'name' => 'Thermal Label',
@@ -279,7 +258,6 @@ it('returns a product by type and id', function () {
         'price' => 15,
         'original_price' => 17,
         'stock' => 10,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -294,16 +272,10 @@ it('returns a product by type and id', function () {
         ->assertJsonPath('data.type', 'simple')
         ->assertJsonPath('data.slug', 'thermal-label')
         ->assertJsonPath('data.article_number', 'ART-THR-001')
-        ->assertJsonPath('data.material_id', $material->id)
-        ->assertJsonPath('data.material.slug', 'shipping-film')
         ->assertJsonPath('data.meta.brand', 'zebra');
 });
 
 it('returns a variable product by type and slug with variants', function () {
-    $material = Material::create([
-        'title' => 'Polypropylene Film',
-        'slug' => 'polypropylene-film',
-    ]);
 
     $master = MasterProduct::create([
         'name' => 'Direct Thermal Roll',
@@ -312,7 +284,6 @@ it('returns a variable product by type and slug with variants', function () {
         'article_number' => 'ART-DTR-001',
         'price' => 22,
         'original_price' => 28,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'variable',
     ]);
@@ -327,8 +298,6 @@ it('returns a variable product by type and slug with variants', function () {
         ->assertJsonPath('data.type', 'variable')
         ->assertJsonPath('data.slug', 'direct-thermal-roll')
         ->assertJsonPath('data.article_number', 'ART-DTR-001')
-        ->assertJsonPath('data.material_id', $material->id)
-        ->assertJsonPath('data.material.slug', 'polypropylene-film')
         ->assertJsonPath('data.variants.0.sku', 'DTR-100');
 });
 
@@ -413,10 +382,6 @@ it('returns localized strings for product detail lookups', function () {
 });
 
 it('returns categories and filter options', function () {
-    $material = Material::create([
-        'title' => 'Coated Paper',
-        'slug' => 'coated-paper',
-    ]);
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -443,7 +408,6 @@ it('returns categories and filter options', function () {
         'price' => 9,
         'original_price' => 11,
         'stock' => 4,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -465,13 +429,9 @@ it('returns categories and filter options', function () {
         ->assertOk()
         ->assertJsonPath('data.types.0.value', 'simple')
         ->assertJsonPath('data.filters.0.key', 'price')
-        ->assertJsonPath('data.filters.1.key', 'material_id')
-        ->assertJsonPath('data.filters.1.options.0.slug', 'coated-paper')
-        ->assertJsonPath('data.filters.2.key', 'material_category')
-        ->assertJsonPath('data.filters.3.key', 'afwerking')
+        ->assertJsonPath('data.filters.1.key', 'afwerking')
         ->assertJsonFragment(['min' => 'breedte_min'])
-        ->assertJsonFragment(['value' => 'glossy'])
-        ->assertJsonFragment(['slug' => 'coated-paper']);
+        ->assertJsonFragment(['value' => 'glossy']);
 
     expect(collect($gateway->payloads)->contains(
         fn (array $payload) => data_get($payload, 'body.aggs.catalog_brand.terms.field') === 'catalog_brand.keyword'
@@ -479,16 +439,6 @@ it('returns categories and filter options', function () {
 });
 
 it('returns localized api responses when a frontend language is provided', function () {
-    $material = Material::create([
-        'title' => 'Thermisch Papier',
-        'slug' => 'thermisch-papier',
-        'subtitle' => 'Desktop etiketten',
-    ]);
-    catalogTranslation($material, [
-        'title' => 'Thermal Paper',
-        'slug' => 'thermal-paper',
-        'subtitle' => 'Desktop labels',
-    ], 'en');
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalogus',
@@ -522,7 +472,6 @@ it('returns localized api responses when a frontend language is provided', funct
         'price' => 13,
         'original_price' => 15,
         'stock' => 9,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -553,8 +502,6 @@ it('returns localized api responses when a frontend language is provided', funct
         ->assertJsonPath('data.0.title', 'Verzendlabels')
         ->assertJsonPath('data.0.slug', 'verzendlabels')
         ->assertJsonPath('data.0.subtitle', 'Thermische verzendlabels')
-        ->assertJsonPath('data.0.material.title', 'Thermisch Papier')
-        ->assertJsonPath('data.0.material.slug', 'thermisch-papier')
         ->assertJsonPath('data.0.categories.0.name', 'Etiketten')
         ->assertJsonPath('data.0.categories.0.slug', 'etiketten');
 
@@ -598,8 +545,7 @@ it('returns localized api responses when a frontend language is provided', funct
     $this->getJson('/api/filters?lang=nl')
         ->assertOk()
         ->assertJsonPath('data.types.0.label', 'Eenvoudig')
-        ->assertJsonPath('data.filters.0.label', 'Prijs')
-        ->assertJsonPath('data.filters.1.options.0.label', 'Thermisch Papier');
+        ->assertJsonPath('data.filters.0.label', 'Prijs');
 
     $this->getJson('/api/filters?lang=en')
         ->assertOk()
@@ -703,10 +649,6 @@ it('includes canonical property fields in elastic search query so users can sear
 });
 
 it('normalizes catalog facet fields in elastic product payloads', function () {
-    $material = Material::create([
-        'title' => 'PP matte',
-        'slug' => 'pp-matte',
-    ]);
 
     $product = Product::create([
         'name' => 'Canonical Facet Label',
@@ -715,7 +657,6 @@ it('normalizes catalog facet fields in elastic product payloads', function () {
         'sku' => 'CANON-001',
         'price' => 14,
         'stock' => 5,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -727,7 +668,7 @@ it('normalizes catalog facet fields in elastic product payloads', function () {
         'merken' => ['Epson', 'Diamondlabels'],
     ]);
 
-    $product->load(['material', 'propertyValues.property', 'metas']);
+    $product->load(['propertyValues.property', 'metas']);
 
     $payload = $product->toSearchableArray();
 
@@ -815,10 +756,6 @@ it('returns article number in product responses and supports elastic search/filt
 });
 
 it('uses elastic catalog search for full product filtering when the elastic driver is active', function () {
-    $material = Material::create([
-        'title' => 'Premium Paper',
-        'slug' => 'premium-paper',
-    ]);
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -839,7 +776,6 @@ it('uses elastic catalog search for full product filtering when the elastic driv
         'price' => 18,
         'original_price' => 24,
         'stock' => 6,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -858,7 +794,7 @@ it('uses elastic catalog search for full product filtering when the elastic driv
         catalogHit($product),
     ]);
 
-    $this->getJson("/api/products?search=Elastic%20Zebra&category=labels&afwerking=glossy&material_id={$material->id}&material=Premium%20Paper&brand=zebra&breedte_min=40&breedte_max=60&sort=price_desc")
+    $this->getJson('/api/products?search=Elastic%20Zebra&category=labels&afwerking=glossy&brand=zebra&breedte_min=40&breedte_max=60&sort=price_desc')
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.slug', 'elastic-zebra-label');
@@ -873,12 +809,7 @@ it('uses elastic catalog search for full product filtering when the elastic driv
         ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
             fn (array $clause) => ($clause['terms']['properties.afwerking.keyword'] ?? null) === ['glossy']
         ))->toBeTrue()
-        ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
-            fn (array $clause) => ($clause['terms']['material_id'] ?? null) === [$material->id]
-        ))->toBeTrue()
-        ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
-            fn (array $clause) => ($clause['terms']['catalog_material'] ?? null) === ['Premium Paper']
-        ))->toBeTrue()
+
         ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
             fn (array $clause) => ($clause['terms']['catalog_brand.keyword'] ?? null) === ['zebra']
         ))->toBeTrue()
@@ -956,10 +887,6 @@ it('returns a 503 response when the elastic catalog backend is unavailable', fun
 });
 
 it('defines stable scout indexes and property-based elastic payloads for product search models', function () {
-    $material = Material::create([
-        'title' => 'Test Paper',
-        'slug' => 'test-paper',
-    ]);
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -981,11 +908,6 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'name' => 'Labels',
         'slug' => 'labels',
     ], 'en');
-
-    catalogTranslation($material, [
-        'title' => 'Test Papier',
-        'slug' => 'test-papier',
-    ]);
 
     $product = Product::create([
         'name' => 'Payload Label',
@@ -1010,7 +932,6 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'width' => 50,
         'height' => 25,
         'length' => 500,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'simple',
     ]);
@@ -1047,7 +968,7 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'excerpt' => 'Nederlandse payload samenvatting',
         'product_information' => 'Vertaalde payload informatie',
     ]);
-    $product->load(['translations', 'taxons.media', 'material.translations', 'propertyValues.property']);
+    $product->load(['translations', 'taxons.media', 'propertyValues.property']);
 
     $masterProduct = MasterProduct::create([
         'name' => 'Payload Ribbon',
@@ -1056,7 +977,6 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'article_number' => 'ART-PAY-VAR-001',
         'price' => 21,
         'original_price' => 28,
-        'material_id' => $material->id,
         'state' => 'active',
         'product_type' => 'variable',
     ]);
@@ -1070,7 +990,7 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'title' => 'Payload Lint',
         'slug' => 'payload-lint',
     ]);
-    $masterProduct->load(['translations', 'taxons.media', 'metas', 'variants', 'material.translations']);
+    $masterProduct->load(['translations', 'taxons.media', 'metas', 'variants']);
 
     $productPayload = $product->toSearchableArray();
     $masterPayload = $masterProduct->toSearchableArray();
@@ -1124,16 +1044,9 @@ it('defines stable scout indexes and property-based elastic payloads for product
             'height' => 25.0,
             'length' => 500.0,
         ])
-        ->and($productPayload['material_id'])->toBe($material->id)
-        ->and($productPayload['material_ids'])->toBe([$material->id])
-        ->and($productPayload['material'])->toMatchArray([
-            'id' => $material->id,
-            'title' => 'Test Paper',
-            'slug' => 'test-paper',
-        ])
         ->and($productPayload['created_at'])->toBe($product->created_at->toISOString())
         ->and($productPayload['updated_at'])->toBe($product->updated_at->toISOString())
-        ->and($productPayload)->not->toHaveKeys(['material_title', 'material_slug', 'compatibility'])
+        ->and($productPayload)->not->toHaveKeys(['material_id', 'material_ids', 'material', 'material_title', 'material_slug', 'compatibility'])
         ->and($productPayload['properties'])->toMatchArray([
             'printmethode' => ['Digital print'],
             'breedte' => ['50'],
@@ -1159,9 +1072,9 @@ it('defines stable scout indexes and property-based elastic payloads for product
         ->and($masterPayload['title'])->toContain('Payload Ribbon')
         ->and($masterPayload['slug'])->toContain('payload-ribbon')
         ->and($masterPayload['article_number'])->toBe('ART-PAY-VAR-001')
-        ->and($masterPayload['material_id'])->toBe($material->id)
-        ->and($masterPayload['material_ids'])->toBe([$material->id])
-        ->and($masterPayload)->not->toHaveKeys(['make', 'material_title', 'material_slug', 'compatibility'])
+        ->and($masterPayload['slug'])->toContain('payload-ribbon')
+        ->and($masterPayload['article_number'])->toBe('ART-PAY-VAR-001')
+        ->and($masterPayload)->not->toHaveKeys(['material_id', 'material_ids', 'make', 'material_title', 'material_slug', 'compatibility'])
         ->and($masterPayload['stock'])->toBe(9.0);
 });
 
@@ -1219,57 +1132,4 @@ it('indexes printer documents with category ids slugs and paths from compatible 
         ->and($payload['categories'][0]['slug_nl'])->toBe('etiketten-labels')
         ->and($payload['categories'][0]['main_image'])->toBe($labels->fresh()->getFirstMediaUrl('main'))
         ->and($payload['categories'][0]['slug_en'])->toBe('labels');
-});
-
-it('indexes material documents with matching product ids for frontend elastic lookups', function (): void {
-    $material = Material::create([
-        'title' => 'Direct Thermal Film',
-        'subtitle' => 'White permanent',
-        'slug' => 'direct-thermal-film',
-        'description' => 'Film for direct thermal labels',
-        'code' => 'DTF-001',
-        'brand' => 'Creative',
-        'status' => 'active',
-        'print_method' => 'direct_thermal',
-        'base_material' => 'PP',
-        'finish' => 'matte',
-        'adhesive' => 'permanent',
-        'supplier' => 'Polcoat',
-        'supplier_reference' => 'POL-001',
-        'price_per_sq_meter' => 12.5,
-        'certificate' => 'fsc',
-    ]);
-
-    $product = Product::create([
-        'name' => 'Material Linked Label',
-        'title' => 'Material Linked Label',
-        'slug' => 'material-linked-label',
-        'sku' => 'MAT-LINK-001',
-        'price' => 14,
-        'stock' => 5,
-        'material_id' => $material->id,
-        'state' => 'active',
-        'product_type' => 'simple',
-    ]);
-
-    $masterProduct = MasterProduct::create([
-        'name' => 'Material Linked Ribbon',
-        'title' => 'Material Linked Ribbon',
-        'slug' => 'material-linked-ribbon',
-        'article_number' => 'MAT-LINK-VAR-001',
-        'price' => 21,
-        'material_id' => $material->id,
-        'state' => 'active',
-        'product_type' => 'variable',
-    ]);
-
-    $payload = $material->load(['products', 'masterProducts'])->toSearchableArray();
-
-    expect($material->searchableAs())->toBe('business_labels_catalog_materials')
-        ->and($material->getScoutKey())->toBe('material_'.$material->id)
-        ->and($payload['title'])->toContain('Direct Thermal Film')
-        ->and($payload['product_ids'])->toBe([$product->id])
-        ->and($payload['master_product_ids'])->toBe([$masterProduct->id])
-        ->and(data_get($material->mappableAs(), 'properties.product_ids.type'))->toBe('integer')
-        ->and(data_get($material->mappableAs(), 'properties.master_product_ids.type'))->toBe('integer');
 });

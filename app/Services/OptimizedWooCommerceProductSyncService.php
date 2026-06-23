@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\DiscountGroup;
-use App\Models\Material;
 use App\Models\Product;
 // use App\Models\ProductMeta; // DEPRECATED: Now using Vanilo Properties
 use App\Models\ProductMeta;
@@ -631,9 +630,6 @@ class OptimizedWooCommerceProductSyncService
         // WooCommerce uses "publish" status, we use "active"
         $state = (string) ($productData['status'] ?? '') === 'publish' ? 'active' : 'draft';
 
-        // Extract material_id from meta_data
-        $materialId = $this->extractMaterialId($productData);
-
         $articleNumber = $this->extractArticleNumber($productData);
         $packing_group = 1; // default value
         $jaritechStock = null;
@@ -684,7 +680,6 @@ class OptimizedWooCommerceProductSyncService
             'description' => (string) $productData['short_description'],
             'content' => (string) ($productData['description'] ?? ''),
             'state' => $state,
-            'material_id' => $materialId,
             'packing_group' => $packing_group,
             'jeritech_stock' => (int) $jaritechStock,
             'meta_title' => $metaTitle,
@@ -1180,47 +1175,6 @@ class OptimizedWooCommerceProductSyncService
         }
 
         return '';
-    }
-
-    /**
-     * Extract material ID from product meta_data.
-     *
-     * Looks for the '_custom_product_text_materiaalc' meta field,
-     * finds a matching material by title, and returns the material ID.
-     *
-     * Example meta_data entry:
-     * {"key": "_custom_product_text_materiaalc", "value": "DTD10"}
-     *
-     * This will lookup materials.title = "DTD10" and return materials.id.
-     * If no match is found, returns null (product will sync without material).
-     *
-     * @param  array  $productData  Product data
-     * @return int|null Material ID or null if not found
-     */
-    private function extractMaterialId(array $productData): ?int
-    {
-        // Extract material title from meta_data
-        $materialTitle = null;
-
-        foreach ($productData['meta_data'] ?? [] as $meta) {
-            if (($meta['key'] ?? null) === '_custom_product_text_materiaalc') {
-                $materialTitle = trim((string) ($meta['value'] ?? ''));
-                break;
-            }
-        }
-
-        // No material specified or empty value
-        if (empty($materialTitle)) {
-            return null;
-        }
-
-        // Look up material by title (case-insensitive)
-        // We use DB::raw with LOWER() for case-insensitive comparison
-        $material = Material::query()
-            ->where(DB::raw('LOWER(title)'), strtolower($materialTitle))
-            ->first();
-
-        return $material?->id;
     }
 
     /**

@@ -4,7 +4,7 @@ use App\Concerns\HandlesWysiwygMedia;
 use App\Models\AiSetting;
 use App\Models\DiscountGroup;
 use App\Models\MasterProduct;
-use App\Models\Material;
+
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\ProductRelation;
@@ -134,7 +134,7 @@ new class extends Component
 
     public string $material_code = '';
 
-    public ?int $material_id = null;
+
 
     public ?string $tax_category_id = null;
 
@@ -378,7 +378,7 @@ new class extends Component
         $this->delivery_dates_in_stock = $model->delivery_dates_in_stock !== null ? (int) $model->delivery_dates_in_stock : null;
         $this->packing_group = $model->packing_group !== null ? (int) $model->packing_group : null;
         $this->allow_singulars = $model->allow_singulars !== null ? (bool) $model->allow_singulars : false;
-        $this->material_id = $model->material_id;
+
         $this->tax_category_id = $model->tax_category_id ? (string) $model->tax_category_id : null;
         $this->state = (string) $model->state->value();
         $this->discount_group_id = (int) $model->discount_group_id;
@@ -512,7 +512,7 @@ new class extends Component
             'finishing' => 'nullable|string|max:255',
             'glue' => 'nullable|string|max:255',
             'brand' => 'nullable|string|max:255',
-            'material_id' => 'nullable|exists:materials,id',
+
             'tax_category_id' => 'nullable|exists:tax_categories,id',
             'material_code' => 'nullable|string|max:255',
             'druktype' => 'nullable|string|max:255',
@@ -804,11 +804,11 @@ new class extends Component
         $this->aiRowStatus = ['en' => [], 'nl' => []];
         $this->aiRowErrors = ['en' => [], 'nl' => []];
 
-        $settings = AiSetting::current();
+        $defaults = AiSetting::defaults();
 
         $this->aiSelections = [
-            'en' => array_values(array_intersect((array) $settings->default_fields_en, $this->aiGeneratableFields())),
-            'nl' => array_values(array_intersect((array) $settings->default_fields_nl, $this->aiGeneratableFields())),
+            'en' => array_values(array_intersect((array) ($defaults['default_fields_en'] ?? []), $this->aiGeneratableFields())),
+            'nl' => array_values(array_intersect((array) ($defaults['default_fields_nl'] ?? []), $this->aiGeneratableFields())),
         ];
 
         $this->aiHasContent = $this->aiHasContentMap();
@@ -1120,7 +1120,7 @@ new class extends Component
         $template = $validated['product_template'] ?? 'label';
 
         if ($template !== 'label') {
-            $labelOnlyFields = ['finishing', 'glue', 'material_information', 'brand', 'material_id', 'material_code', 'druktype', 'printer_type', 'meta_width', 'meta_height', 'kern', 'buitendia', 'detectie', 'merken', 'packaging_unit', 'jeritech_stock'];
+            $labelOnlyFields = ['finishing', 'glue', 'material_information', 'brand', 'material_code', 'druktype', 'printer_type', 'meta_width', 'meta_height', 'kern', 'buitendia', 'detectie', 'merken', 'packaging_unit', 'jeritech_stock'];
             foreach ($labelOnlyFields as $field) {
                 $validated[$field] = null;
             }
@@ -1266,28 +1266,7 @@ new class extends Component
             ->all();
     }
 
-    #[Computed]
-    public function materials()
-    {
-        $materials = Material::all();
 
-        if ($this->usesMainLocale()) {
-            return $materials->sortBy('title', SORT_NATURAL | SORT_FLAG_CASE)->values();
-        }
-
-        return $materials
-            ->map(function ($material) {
-                $localizedMaterial = $this->getTranslatedModel($material);
-
-                if ($material->relationLoaded('category') && $material->category) {
-                    $localizedMaterial->setRelation('category', $this->getTranslatedModel($material->category));
-                }
-
-                return $localizedMaterial;
-            })
-            ->sortBy('title', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
-    }
 
     #[Computed]
     public function printers()
@@ -2063,14 +2042,7 @@ new class extends Component
                                 @endforeach
                             </flux:select>
 
-                            <flux:select wire:model="material_id" label="{{ __('Material') }}">
-                                <option value="">{{ __('Select Material') }}</option>
-                                @foreach ($this->materials as $mat)
-                                    <option value="{{ $mat->id }}">
-                                        {{ __($mat->title) }}{{ $mat->category ? ' — ' . __($mat->category->name) : '' }}
-                                    </option>
-                                @endforeach
-                            </flux:select>
+
 
                             <flux:select wire:model="druktype" label="{{ __('Druktype') }}">
                                 <option value="">{{ __('Select Druktype') }}</option>

@@ -61,7 +61,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
         'delivery_dates_in_stock',
         'packing_group',
         'tax_category_id',
-        'material_id',
         'discount_group_id',
         'discount',
     ];
@@ -322,8 +321,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             'delivery_dates_in_stock' => $this->delivery_dates_in_stock !== null ? (int) $this->delivery_dates_in_stock : null,
             'delivery_dates_no_stock' => $this->delivery_dates_no_stock !== null ? (int) $this->delivery_dates_no_stock : null,
             'packing_group' => $this->packing_group !== null ? (int) $this->packing_group : null,
-            'material_id' => $this->material_id !== null ? (int) $this->material_id : null,
-            'material_ids' => $this->material_id !== null ? [(int) $this->material_id] : [],
             'main_image' => $mainImage !== '' ? $mainImage : null,
             'created_at_timestamp' => $this->created_at?->getTimestamp() ?? time(),
             'discount' => (float) $this->discount,
@@ -381,8 +378,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
                 'delivery_dates_in_stock' => ['type' => 'integer'],
                 'delivery_dates_no_stock' => ['type' => 'integer'],
                 'packing_group' => ['type' => 'integer'],
-                'material_id' => ['type' => 'integer'],
-                'material_ids' => ['type' => 'integer'],
                 'created_at_timestamp' => ['type' => 'long'],
                 'discount' => ['type' => 'float'],
                 'translations' => [
@@ -448,14 +443,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             'model_id',
             'taxon_id'
         );
-    }
-
-    /**
-     * Get the material relationship.
-     */
-    public function material(): BelongsTo
-    {
-        return $this->belongsTo(Material::class);
     }
 
     /**

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\GroupProduct;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
@@ -48,22 +47,9 @@ class SearchIndexInvalidator
         $this->reindexSearchableByIds(Post::class, $ids, fn ($query) => $query->where('post_type', 'printer'));
     }
 
-    /**
-     * @param  iterable<int, int|string|null>  $ids
-     */
-    public function reindexMaterials(iterable $ids): void
-    {
-        $this->reindexSearchableByIds(Material::class, $ids);
-    }
-
     public function reindexProduct(Product|int $product): void
     {
         $this->reindexProducts([$product instanceof Product ? $product->getKey() : $product]);
-    }
-
-    public function reindexMaterial(Material|int $material): void
-    {
-        $this->reindexMaterials([$material instanceof Material ? $material->getKey() : $material]);
     }
 
     public function reindexPrinter(Post|int $printer): void
@@ -71,35 +57,9 @@ class SearchIndexInvalidator
         $this->reindexPrinters([$printer instanceof Post ? $printer->getKey() : $printer]);
     }
 
-    public function reindexForProduct(Product $product, ?int $previousMaterialId = null): void
+    public function reindexForProduct(Product $product): void
     {
         $this->reindexProduct($product);
-
-        $materialIds = collect([$previousMaterialId, $product->material_id])->filter()->unique();
-        $this->reindexMaterials($materialIds);
-    }
-
-    public function reindexForMaterial(Material|int $material): void
-    {
-        $materialId = $material instanceof Material ? (int) $material->getKey() : (int) $material;
-
-        $this->reindexMaterial($materialId);
-        $this->reindexProductsForMaterial($materialId);
-        $this->reindexMasterProductsForMaterial($materialId);
-    }
-
-    public function reindexProductsForMaterial(Material|int $material): void
-    {
-        $materialId = $material instanceof Material ? (int) $material->getKey() : (int) $material;
-
-        $this->reindexProducts(Product::query()->where('material_id', $materialId)->pluck('id'));
-    }
-
-    public function reindexMasterProductsForMaterial(Material|int $material): void
-    {
-        $materialId = $material instanceof Material ? (int) $material->getKey() : (int) $material;
-
-        $this->reindexMasterProducts(MasterProduct::query()->where('material_id', $materialId)->pluck('id'));
     }
 
     public function reindexForPrinter(Post|int $printer): void
@@ -127,11 +87,9 @@ class SearchIndexInvalidator
 
         $productIds = $this->modelTaxonIdsFor(Product::class, $allTaxonIds);
         $masterProductIds = $this->modelTaxonIdsFor(MasterProduct::class, $allTaxonIds);
-        $materialIds = $this->modelTaxonIdsFor(Material::class, $allTaxonIds);
 
         $this->reindexProducts($productIds);
         $this->reindexMasterProducts($masterProductIds);
-        $this->reindexMaterials($materialIds);
         $this->reindexPrinters(
             DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
         );
@@ -140,18 +98,15 @@ class SearchIndexInvalidator
     /**
      * @param  iterable<int, int|string|null>  $productIds
      * @param  iterable<int, int|string|null>  $masterProductIds
-     * @param  iterable<int, int|string|null>  $materialIds
      */
     public function reindexTaxonAssignmentTargets(
         iterable $productIds,
-        iterable $masterProductIds = [],
-        iterable $materialIds = []
+        iterable $masterProductIds = []
     ): void {
         $productIds = $this->normalizeIds($productIds);
 
         $this->reindexProducts($productIds);
         $this->reindexMasterProducts($masterProductIds);
-        $this->reindexMaterials($materialIds);
         $this->reindexPrinters(
             DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
         );
@@ -166,7 +121,6 @@ class SearchIndexInvalidator
             Product::class => $this->reindexProducts([$modelId]),
             MasterProduct::class => $this->reindexMasterProducts([$modelId]),
             GroupProduct::class => $this->reindexGroupProducts([$modelId]),
-            Material::class => $this->reindexForMaterial($modelId),
             Post::class => $this->reindexForPrinter($modelId),
             Taxon::class => $this->reindexForTaxons([$modelId]),
             default => null,
@@ -183,33 +137,9 @@ class SearchIndexInvalidator
 
         $this->reindexProducts($productIds);
         $this->reindexForTaxons($taxonIds);
-        $this->reindexMaterials(
-            Product::query()
-                ->whereKey($productIds)
-                ->whereNotNull('material_id')
-                ->pluck('material_id')
-        );
         $this->reindexPrinters(
             DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
         );
-    }
-
-    /**
-     * @param  iterable<int, int|string|null>  $materialIds
-     * @param  iterable<int, int|string|null>  $taxonIds
-     */
-    public function reindexAfterMaterialTaxonsChanged(iterable $materialIds, iterable $taxonIds = []): void
-    {
-        $materialIds = $this->normalizeIds($materialIds);
-
-        $this->reindexMaterials($materialIds);
-
-        foreach ($materialIds as $materialId) {
-            $this->reindexProductsForMaterial($materialId);
-            $this->reindexMasterProductsForMaterial($materialId);
-        }
-
-        $this->reindexForTaxons($taxonIds);
     }
 
     /**
@@ -309,7 +239,7 @@ class SearchIndexInvalidator
      */
     protected function classForMorphType(string $morphType): ?string
     {
-        foreach ([Product::class, MasterProduct::class, GroupProduct::class, Material::class, Post::class, Taxon::class] as $modelClass) {
+        foreach ([Product::class, MasterProduct::class, GroupProduct::class, Post::class, Taxon::class] as $modelClass) {
             if (in_array($morphType, $this->morphTypesFor($modelClass), true)) {
                 return $modelClass;
             }

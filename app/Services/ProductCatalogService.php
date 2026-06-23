@@ -5,12 +5,10 @@ namespace App\Services;
 use App\Contracts\CatalogSearchGateway;
 use App\Models\GroupProduct;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Product;
 use App\Support\ApiLocale;
 use App\Support\CatalogFacetNormalizer;
 use App\Support\CatalogMetaFilters;
-use App\Support\LocalizedModelValue;
 use Illuminate\Pagination\LengthAwarePaginator as LaravelLengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Arr;
@@ -19,8 +17,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Throwable;
-use Vanilo\Category\Models\Taxon;
-use Vanilo\Category\Models\Taxonomy;
 use Vanilo\Translation\Models\Translation;
 
 class ProductCatalogService
@@ -219,22 +215,6 @@ class ProductCatalogService
             ] + $this->priceRange(),
         ];
 
-        $filters[] = [
-            'key' => 'material_id',
-            'label' => __('Material'),
-            'type' => 'multi_select',
-            'query' => 'material_id',
-            'options' => $this->materialOptions(),
-        ];
-
-        $filters[] = [
-            'key' => 'material_category',
-            'label' => __('Material Type'),
-            'type' => 'multi_select',
-            'query' => 'material_category',
-            'options' => $this->materialCategoryOptions(),
-        ];
-
         $brandOptions = $this->brandOptions();
         if ($brandOptions !== []) {
             $filters[] = [
@@ -283,9 +263,6 @@ class ProductCatalogService
 
         $aggs = [
             'catalog_brand' => ['terms' => ['field' => 'catalog_brand.keyword', 'size' => 500]],
-            'catalog_material' => ['terms' => ['field' => 'catalog_material', 'size' => 500]],
-            'material_id' => ['terms' => ['field' => 'material_id', 'size' => 500]],
-            'material_category' => ['terms' => ['field' => 'material_category_slug.keyword', 'size' => 500]],
             'category_ids' => ['terms' => ['field' => 'category_ids', 'size' => 1000]],
         ];
 
@@ -417,8 +394,6 @@ class ProductCatalogService
                                 'variant_skus^2',
                                 'article_number^2',
                                 'catalog_brand^2',
-                                'catalog_material_code^2',
-                                'catalog_material^2',
                                 'compatible_brands',
                                 'properties.printmethode',
                                 'properties.afwerking',
@@ -494,24 +469,6 @@ class ProductCatalogService
             $clauses[] = ['range' => ['stock' => ['gt' => 0]]];
         } elseif ($inStock === false) {
             $clauses[] = ['range' => ['stock' => ['lte' => 0]]];
-        }
-
-        if ($materialIds = $this->normalizeIntegerValues($filters['material_id'] ?? null)) {
-            $clauses[] = ['terms' => ['material_id' => $materialIds]];
-        }
-
-        if ($materials = $this->normalizeStringValues($filters['material'] ?? $filters['catalog_material'] ?? null)) {
-            $clauses[] = ['terms' => ['catalog_material' => $materials]];
-        }
-
-        // Filter by material category slugs (internally uses taxon slugs)
-        if ($materialCategorySlugs = $this->normalizeStringValues($filters['material_category'] ?? null)) {
-            $clauses[] = ['terms' => ['material_taxon_slugs' => $materialCategorySlugs]];
-        }
-
-        // Filter by material category IDs (internally uses taxon IDs)
-        if ($materialCategoryIds = $this->normalizeIntegerValues($filters['material_category_id'] ?? null)) {
-            $clauses[] = ['terms' => ['material_taxon_ids' => $materialCategoryIds]];
         }
 
         if ($categoryIds = $this->normalizeIntegerValues($filters['category_id'] ?? null)) {
@@ -692,8 +649,8 @@ class ProductCatalogService
         abort_unless($type !== null, 404);
 
         return $type === 'simple'
-            ? Product::query()->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'material.translations', 'activeWarrantyOptions'])
-            : MasterProduct::query()->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property', 'material.translations']);
+            ? Product::query()->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'activeWarrantyOptions'])
+            : MasterProduct::query()->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property']);
     }
 
     protected function exactMetaFilterValues(string $field, array $definition, array $filters): array
@@ -722,46 +679,6 @@ class ProductCatalogService
     protected function metaFilterDefinitions(): array
     {
         return CatalogMetaFilters::definitions();
-    }
-
-    protected function materialOptions(): array
-    {
-        return Material::query()
-            ->with('translations')
-            ->orderBy('title')
-            ->get(['id', 'title', 'slug', 'subtitle'])
-            ->map(fn (Material $material) => array_filter([
-                'value' => (int) $material->id,
-                'label' => LocalizedModelValue::string($material, 'title', $material->title),
-                'slug' => LocalizedModelValue::string($material, 'slug', $material->slug),
-                'subtitle' => LocalizedModelValue::string($material, 'subtitle', $material->subtitle),
-            ], static fn ($value) => $value !== null && $value !== ''))
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Get material category options (internally queries Vanilo taxons).
-     */
-    protected function materialCategoryOptions(): array
-    {
-        $taxonomy = Taxonomy::query()->where('slug', 'material-category')->first();
-
-        if (! $taxonomy) {
-            return [];
-        }
-
-        return Taxon::query()
-            ->where('taxonomy_id', $taxonomy->id)
-            ->whereNull('parent_id')
-            ->orderBy('name', 'asc')
-            ->get(['id', 'name', 'slug'])
-            ->map(fn (Taxon $taxon) => [
-                'value' => (string) LocalizedModelValue::string($taxon, 'slug', $taxon->slug),
-                'label' => (string) LocalizedModelValue::string($taxon, 'name', $taxon->name),
-            ])
-            ->values()
-            ->all();
     }
 
     protected function metaOptionCollection(string $field): Collection
@@ -858,19 +775,19 @@ class ProductCatalogService
         $groupIds = $items->where('product_type', 'group')->pluck('id')->map(fn ($id) => (int) $id)->values();
 
         $simpleProducts = Product::query()
-            ->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'material.translations', 'activeWarrantyOptions', 'discount_group'])
+            ->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'activeWarrantyOptions', 'discount_group'])
             ->whereIn('id', $simpleIds)
             ->get()
             ->keyBy(fn (Product $product) => (string) $product->getKey());
 
         $masterProducts = MasterProduct::query()
-            ->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property', 'material.translations'])
+            ->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property'])
             ->whereIn('id', $masterIds)
             ->get()
             ->keyBy(fn (MasterProduct $product) => (string) $product->getKey());
 
         $groupProducts = GroupProduct::query()
-            ->with(['translations', 'taxons.taxonomy', 'media', 'items.product', 'material.translations', 'discountGroup'])
+            ->with(['translations', 'taxons.taxonomy', 'media', 'items.product', 'discountGroup'])
             ->whereIn('id', $groupIds)
             ->get()
             ->keyBy(fn (GroupProduct $product) => (string) $product->getKey());

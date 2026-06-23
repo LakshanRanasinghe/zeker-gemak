@@ -9,7 +9,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Vanilo\Foundation\Models\Taxon;
+use App\Models\Taxon;
 use Vanilo\Foundation\Models\Taxonomy;
 use Vanilo\Translation\Models\Translation;
 

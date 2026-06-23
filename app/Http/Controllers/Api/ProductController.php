@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\MaterialResource;
 use App\Http\Resources\Api\PrinterResource;
 use App\Http\Resources\Api\ProductResource;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\Product;
 use App\Services\ProductCatalogService;
@@ -56,74 +54,6 @@ class ProductController extends Controller
         $product = $this->catalog->findByTypeAndSlug($type, $slug);
 
         return new ProductResource($product);
-    }
-
-    public function getMaterialProducts(Request $request)
-    {
-        $validated = $request->validate([
-            'material_id' => 'required|exists:materials,id',
-            'product_type' => 'nullable|string|in:labels,ink',
-            'per_page' => 'nullable|integer|min:1|max:100',
-        ]);
-
-        $material = Material::with('category')->find($validated['material_id']);
-
-        if (! $material) {
-            return response()->json([
-                'message' => 'Material not found',
-            ], 404);
-        }
-
-        $productType = $validated['product_type'] ?? null;
-        $perPage = $validated['per_page'] ?? 15;
-
-        try {
-            // Get products for this material
-            $query = Product::query()
-                ->with('activeWarrantyOptions')
-                ->withCount('activeWarrantyOptions')
-                ->where('material_id', $material->id);
-
-            // Apply product type filter (taxon-based)
-            $taxonSlugs = $this->getTaxonSlugsForProductType($productType);
-            if (! empty($taxonSlugs)) {
-                $query->whereHas('taxons', function ($q) use ($taxonSlugs) {
-                    // Match products assigned to the taxon OR any of its ancestors
-                    $q->where(function ($query) use ($taxonSlugs) {
-                        // Direct match on the taxon slug
-                        $query->whereIn('slug', $taxonSlugs);
-                    })->orWhereHas('parent', function ($parentQuery) use ($taxonSlugs) {
-                        // Or the taxon's parent matches
-                        $parentQuery->whereIn('slug', $taxonSlugs);
-                    })->orWhereHas('parent.parent', function ($grandParentQuery) use ($taxonSlugs) {
-                        // Or the taxon's grandparent matches (supports 3 levels deep)
-                        $grandParentQuery->whereIn('slug', $taxonSlugs);
-                    });
-                });
-            }
-
-            $products = $query->paginate($perPage);
-
-            return response()->json([
-                'material' => new MaterialResource($material),
-                'products' => [
-                    'data' => ProductResource::collection($products),
-                    'meta' => [
-                        'current_page' => $products->currentPage(),
-                        'from' => $products->firstItem(),
-                        'last_page' => $products->lastPage(),
-                        'per_page' => $products->perPage(),
-                        'to' => $products->lastItem(),
-                        'total' => $products->total(),
-                    ],
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error fetching products',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
-        }
     }
 
     public function getPrinterProducts(Request $request)

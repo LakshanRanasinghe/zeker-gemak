@@ -1,7 +1,6 @@
 <?php
 
 use App\Livewire\DiscountGroups;
-use App\Livewire\MaterialTable;
 use App\Livewire\PageTable;
 use App\Livewire\PostTable;
 use App\Livewire\PrinterTable;
@@ -9,20 +8,18 @@ use App\Livewire\ProductTable;
 use App\Livewire\TaxonomyTable;
 use App\Models\DiscountGroup;
 use App\Models\MasterProduct;
-use App\Models\Material;
 use App\Models\Post;
 use App\Models\PostMeta;
 use App\Models\Product;
+use App\Models\Taxon;
 use App\Models\WysiwygMedia;
 use Flux\Flux;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Vanilo\Channel\Models\Channel;
-use Vanilo\Foundation\Models\Taxon;
 use Vanilo\Foundation\Models\Taxonomy;
 use Vanilo\Properties\Models\Property;
 use Vanilo\Properties\Models\PropertyValue;
@@ -140,50 +137,6 @@ it('deletes post-like entries with translations, wysiwyg media, and meta rows', 
     expect(WysiwygMedia::find($contentMedia->id))->toBeNull();
     expect(WysiwygMedia::find($excerptMedia->id))->toBeNull();
 })->with('post-like deletion entry points');
-
-it('deletes materials and cleans translations, wysiwyg media, and linked material references', function () {
-    $descriptionMedia = WysiwygMedia::create();
-
-    $material = Material::create([
-        'title' => 'Thermal Paper',
-        'subtitle' => 'Direct thermal',
-        'slug' => 'thermal-paper',
-        'description' => deletion_test_attachment_html($descriptionMedia->id),
-    ]);
-
-    $translation = deletion_test_translation_for($material, [
-        'title' => 'Thermisch Papier',
-        'slug' => 'thermisch-papier',
-    ]);
-
-    $simpleProduct = Product::create([
-        'name' => 'Simple Label',
-        'title' => 'Simple Label',
-        'slug' => 'simple-label',
-        'sku' => 'SIMPLE-1',
-        'price' => 10,
-        'stock' => 5,
-        'state' => 'active',
-        'material_id' => $material->id,
-    ]);
-
-    $masterProduct = MasterProduct::create([
-        'name' => 'Variable Label',
-        'title' => 'Variable Label',
-        'slug' => 'variable-label',
-        'price' => 20,
-        'state' => 'active',
-        'material_id' => $material->id,
-    ]);
-
-    deletion_test_call_component_method(MaterialTable::class, 'deleteMaterial', $material->id);
-
-    expect(Material::find($material->id))->toBeNull();
-    expect(Translation::find($translation->id))->toBeNull();
-    expect(WysiwygMedia::find($descriptionMedia->id))->toBeNull();
-    expect($simpleProduct->refresh()->material_id)->toBeNull();
-    expect($masterProduct->refresh()->material_id)->toBeNull();
-});
 
 it('deletes simple products and removes all confirmed owned relations', function () {
     $channel = deletion_test_channel('Catalog');

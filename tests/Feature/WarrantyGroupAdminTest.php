@@ -121,6 +121,7 @@ it('reindexes assigned products after saving warranty group changes', function (
         'sort_order' => 0,
     ]);
 
+    array_splice($indexedProductIds, 0);
     Livewire::test('warranty-groups.create-update', ['warrantyGroup' => $group])
         ->set('name', 'Updated Warranty')
         ->set('warranty_options', [
@@ -157,6 +158,7 @@ it('reindexes assigned products after clearing a deleted warranty group', functi
         'warranty_group_id' => $group->id,
     ]));
 
+    array_splice($indexedProductIds, 0);
     $group->delete();
 
     expect($product->fresh()->warranty_group_id)->toBeNull()

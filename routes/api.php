@@ -13,9 +13,9 @@ use App\Http\Controllers\Api\FavoritePrinterController;
 use App\Http\Controllers\Api\FavoriteProductController;
 use App\Http\Controllers\Api\FilterController;
 use App\Http\Controllers\Api\GroupProductController;
-use App\Http\Controllers\Api\MaterialController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PageController;
+use App\Http\Controllers\Api\PopularProductController;
 use App\Http\Controllers\Api\PrinterController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -79,20 +79,12 @@ Route::prefix('products')->name('products.')->controller(ProductController::clas
     Route::get('{type}/{id}', 'show')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('show');
     Route::post('/printer-products', 'getPrinterProducts')->name('printer-products');
     Route::post('/product-printers', 'getProductPrinters')->name('product-printers');
-    Route::post('/material-products', 'getMaterialProducts')->name('material-products');
     Route::post('/compatibility', 'getCompatibility')->name('compatibility');
 });
 
 Route::prefix('group-products')->name('group-products.')->controller(GroupProductController::class)->group(function () {
     Route::get('/', 'index')->name('index');
     Route::get('slug/{slug}', 'showBySlug')->name('show-by-slug');
-    Route::get('{id}', 'show')->whereNumber('id')->name('show');
-});
-
-Route::prefix('materials')->name('materials.')->controller(MaterialController::class)->group(function () {
-    Route::get('/', 'index')->name('index');
-    Route::get('slug/{slug}', 'showBySlug')->name('show-by-slug');
-    Route::get('{id}/spec-sheet', 'downloadSpecSheet')->whereNumber('id')->name('spec-sheet');
     Route::get('{id}', 'show')->whereNumber('id')->name('show');
 });
 
@@ -141,7 +133,7 @@ Route::post('/recycle-request', [ContactsController::class, 'recycleRequest'])->
 
 Route::get('/availabilities', [AvailabilityController::class, 'index'])->name('availabilities.index');
 Route::get('/team-members', [TeamMemberController::class, 'index'])->name('team-members.index');
-Route::get('/popular-products', [\App\Http\Controllers\Api\PopularProductController::class, 'index'])->name('popular-products.index');
+Route::get('/popular-products', [PopularProductController::class, 'index'])->name('popular-products.index');
 
 Route::post('/register', [UserController::class, 'register']);
 Route::get('/register/data', [UserController::class, 'registerData']);

@@ -222,10 +222,10 @@ new class extends Component {
 
     public function openBulkGenerateModal(): void
     {
-        $settings = AiSetting::current();
+        $defaults = AiSetting::defaults();
         $this->globalSelections = [
-            'en' => array_values(array_intersect((array) $settings->default_fields_en, $this->aiGeneratableFields())),
-            'nl' => array_values(array_intersect((array) $settings->default_fields_nl, $this->aiGeneratableFields())),
+            'en' => array_values(array_intersect((array) ($defaults['default_fields_en'] ?? []), $this->aiGeneratableFields())),
+            'nl' => array_values(array_intersect((array) ($defaults['default_fields_nl'] ?? []), $this->aiGeneratableFields())),
         ];
         $this->useGlobalSelection = true;
         $this->bulkItems = [$this->makeEmptyBulkItem()];
