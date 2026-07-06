@@ -50,7 +50,6 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('faq-pages/{faqPage}/edit', 'faq-pages.create-update')->name('faq-pages.edit');
 
     Route::livewire('printers', 'printers.index')->name('printers.index');
-    Route::livewire('printers/create', 'printers.create-update')->name('printers.create');
     Route::livewire('printers/{printer}/edit', 'printers.create-update')->name('printers.edit');
 
     Route::livewire('taxonomies', 'taxonomies.index')->name('taxonomies.index');

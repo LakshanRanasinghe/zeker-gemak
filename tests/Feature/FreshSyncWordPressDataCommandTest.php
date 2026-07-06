@@ -28,13 +28,6 @@ it('truncates imported wordpress data and runs the fresh sync pipeline', functio
         'updated_at' => $now,
     ]);
 
-    DB::table('materials')->insert([
-        'title' => 'Imported material',
-        'slug' => 'imported-material',
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-
     $taxonomyId = DB::table('taxonomies')->insertGetId([
         'name' => 'Category',
         'slug' => 'category',
@@ -117,7 +110,6 @@ it('truncates imported wordpress data and runs the fresh sync pipeline', functio
     ])->assertSuccessful();
 
     expect(DB::table('discount_groups')->count())->toBe(0)
-        ->and(DB::table('materials')->count())->toBe(0)
         ->and(DB::table('taxonomies')->count())->toBe(0)
         ->and(DB::table('taxons')->count())->toBe(0)
         ->and(DB::table('woocommerce_category_taxon_mappings')->count())->toBe(0)

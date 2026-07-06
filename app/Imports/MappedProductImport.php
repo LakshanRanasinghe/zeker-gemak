@@ -3,7 +3,6 @@
 namespace App\Imports;
 
 use App\Models\Product;
-use App\Services\PrinterProductCompatibilitySyncService;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
@@ -122,7 +121,6 @@ class MappedProductImport implements ToCollection, WithChunkReading, WithEvents,
                         // - Syncing the pivot table (no duplicates)
                         // - Removing old property values not in the array
                         $product->replacePropertyValuesByScalar($this->chunkProperties[$sku]);
-                        app(PrinterProductCompatibilitySyncService::class)->syncProduct($product);
                     }
                 }
 

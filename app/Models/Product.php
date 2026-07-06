@@ -31,7 +31,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
     use Searchable;
 
     protected $casts = [
-        'jeritech_stock' => 'integer',
         'packaging_unit' => 'integer',
         'delivery_dates_no_stock' => 'integer',
         'delivery_dates_in_stock' => 'integer',
@@ -163,7 +162,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
     {
         // Convert empty strings to null for numeric fields before saving
         static::saving(function (Product $product) {
-            $integerFields = ['jeritech_stock', 'packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group'];
+            $integerFields = ['packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group'];
             foreach ($integerFields as $field) {
                 if ($product->$field === '' || ($product->$field === null && ! $product->exists)) {
                     $product->$field = null;
@@ -192,12 +191,11 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         });
 
         static::deleting(function (Product $product) {
-            WysiwygMedia::cleanupFromHtml($product->description, $product->content, $product->product_information);
+            WysiwygMedia::cleanupFromHtml($product->description, $product->content);
             $product->translations()->delete();
             $product->metas()->delete();
             $product->removeFromAllChannels();
             $product->taxons()->detach();
-            $product->printers()->detach();
             $product->propertyValues()->detach();
             $product->videos()->detach();
         });
@@ -227,8 +225,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
 
     public function printers()
     {
-        return $this->belongsToMany(Post::class, 'printer_product', 'product_id', 'printer_id')
-            ->where('post_type', 'printer');
+        return $this->hasMany(Post::class, 'id', 'id')->whereRaw('1 = 0');
     }
 
     public function groupProducts()
@@ -345,17 +342,13 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                 'description_locales' => ['type' => 'text'],
                 'content' => ['type' => 'text'],
                 'content_locales' => ['type' => 'text'],
-                'product_information' => ['type' => 'text'],
-                'product_template' => ['type' => 'keyword'],
-                'make' => ['type' => 'text'],
-                'material_information' => ['type' => 'text'],
                 'state' => ['type' => 'keyword'],
                 'price' => ['type' => 'float'],
                 'original_price' => ['type' => 'float'],
                 'stock' => ['type' => 'float'],
                 'in_stock' => ['type' => 'boolean'],
                 'packaging_unit' => ['type' => 'integer'],
-                'jeritech_stock' => ['type' => 'integer'],
+
                 'delivery_dates_in_stock' => ['type' => 'integer'],
                 'delivery_dates_no_stock' => ['type' => 'integer'],
                 'packing_group' => ['type' => 'integer'],
@@ -423,12 +416,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                     ],
                 ],
                 'printer_ids' => ['type' => 'integer'],
-                'warranty_available' => ['type' => 'boolean'],
-                'warranty_option_ids' => ['type' => 'integer'],
-                'warranty_option_names' => ['type' => 'text'],
-                'warranty_option_months' => ['type' => 'integer'],
-                'warranty_option_prices' => ['type' => 'float'],
-                'warranty_option_skus' => ['type' => 'keyword'],
+
                 'meta_title' => ['type' => 'text'],
                 'meta_description' => ['type' => 'text'],
                 'meta_title_nl' => ['type' => 'text'],
@@ -459,7 +447,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         $catalogMaterial = CatalogFacetNormalizer::materialNamesFromProperties($propertyValues);
         $properties = $this->propertyTextsForSearch($indexablePropertyValues);
         $propertyNumbers = $this->propertyNumbersForSearch($propertyValues);
-        $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, $this->rawString('make'));
+        $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, null);
 
         return array_filter([
             'id' => (int) $this->getKey(),
@@ -493,17 +481,13 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'description_locales' => $this->localizedSearchStrings($this, 'description', $this->rawString('description')),
             'content' => $this->rawString('content'),
             'content_locales' => $this->localizedSearchStrings($this, 'content', $this->rawString('content')),
-            'product_information' => $this->rawString('product_information'),
-            'product_template' => $this->rawString('product_template'),
-            'make' => $this->rawString('make'),
-            'material_information' => $this->rawString('material_information'),
             'state' => $this->stateValue(),
             'price' => $this->price !== null ? (float) $this->price : null,
             'original_price' => $this->original_price !== null ? (float) $this->original_price : null,
             'stock' => (float) $this->stock,
             'in_stock' => (float) $this->stock > 0,
             'packaging_unit' => $this->packaging_unit !== null ? (int) $this->packaging_unit : null,
-            'jeritech_stock' => $this->jeritech_stock !== null ? (int) $this->jeritech_stock : null,
+
             'delivery_dates_in_stock' => $this->delivery_dates_in_stock !== null ? (int) $this->delivery_dates_in_stock : null,
             'delivery_dates_no_stock' => $this->delivery_dates_no_stock !== null ? (int) $this->delivery_dates_no_stock : null,
             'packing_group' => $this->packing_group !== null ? (int) $this->packing_group : null,
@@ -527,7 +511,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'printer_ids' => $this->printerIdsForSearch(),
             'properties' => $properties,
             'property_numbers' => $propertyNumbers,
-            ...$this->warrantyValuesForSearch(),
+
             'meta_title' => ApiLocale::current() === 'en' ? $this->meta_title_en : $this->meta_title_nl,
             'meta_description' => ApiLocale::current() === 'en' ? $this->meta_description_en : $this->meta_description_nl,
             'meta_title_nl' => $this->meta_title_nl,
@@ -552,8 +536,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'taxons.parent.media',
             'taxons.parent.parent:id,slug,parent_id,name',
             'taxons.parent.parent.media',
-            'printers:id',
-            'activeWarrantyOptions:id,product_id,warranty_group_id,name,duration_months,price,sort_order,is_default',
         ]);
     }
 
@@ -568,34 +550,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'taxons.parent.media',
             'taxons.parent.parent:id,slug,parent_id,name',
             'taxons.parent.parent.media',
-            'printers:id',
-            'activeWarrantyOptions:id,product_id,warranty_group_id,name,duration_months,price,sort_order,is_default',
         ]);
-    }
-
-    protected function warrantyValuesForSearch(): array
-    {
-        $options = $this->relationLoaded('activeWarrantyOptions')
-            ? $this->activeWarrantyOptions
-            : $this->activeWarrantyOptions()->get(['id', 'product_id', 'warranty_group_id', 'name', 'duration_months', 'price', 'is_default']);
-
-        if ($options->isEmpty()) {
-            return ['warranty_available' => false];
-        }
-
-        return [
-            'warranty_available' => true,
-            'warranty_option_ids' => $options->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
-            'warranty_option_names' => $options->pluck('name')->filter()->values()->all(),
-            'warranty_option_months' => $options->pluck('duration_months')->map(fn ($months) => (int) $months)->values()->all(),
-            'warranty_option_prices' => $options->pluck('price')->map(fn ($price) => (float) $price)->values()->all(),
-            'warranty_option_skus' => $options->map(function ($option) {
-                $baseSku = (string) ($this->rawString('sku') ?: $this->rawString('article_number') ?: 'product-'.$this->getKey());
-                $normalizedSku = Str::upper(Str::slug($baseSku, '-'));
-
-                return sprintf('%s-WAR-%dM-%d', $normalizedSku, (int) $option->duration_months, (int) $option->id);
-            })->values()->all(),
-        ];
     }
 
     protected function dimensionsForSearch(): array
@@ -755,14 +710,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
 
     protected function printerIdsForSearch(): array
     {
-        $printers = $this->relationLoaded('printers') ? $this->printers : $this->printers()->get();
-
-        return $printers
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        return [];
     }
 
     protected function categoriesHierarchyForSearch(): array
@@ -908,30 +856,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         return $this->belongsTo(DiscountGroup::class);
     }
 
-    public function warrantyGroup(): BelongsTo
-    {
-        return $this->belongsTo(WarrantyGroup::class);
-    }
-
-    /**
-     * Get all warranty options for this product's assigned warranty group.
-     */
-    public function warrantyOptions(): HasMany
-    {
-        return $this->hasMany(ProductWarrantyOption::class, 'warranty_group_id', 'warranty_group_id')->ordered();
-    }
-
-    /**
-     * Get only active warranty options for this product's assigned active warranty group.
-     */
-    public function activeWarrantyOptions(): HasMany
-    {
-        return $this->hasMany(ProductWarrantyOption::class, 'warranty_group_id', 'warranty_group_id')
-            ->whereHas('warrantyGroup', fn (EloquentBuilder $query) => $query->where('is_active', true))
-            ->active()
-            ->ordered();
-    }
-
     protected function localizedSearchStrings(object $model, string $field, string $fallback = ''): array
     {
         if (! $model instanceof Model) {
@@ -952,5 +876,10 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         $value = LocalizedModelValue::string($model ?? $this, $field, $fallback !== '' ? $fallback : null);
 
         return $value !== null && $value !== '' ? $value : null;
+    }
+
+    public function activeWarrantyOptions(): HasMany
+    {
+        return $this->hasMany(ProductWarrantyOption::class, 'id', 'id')->whereRaw('1 = 0');
     }
 }

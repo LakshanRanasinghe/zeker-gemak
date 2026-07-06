@@ -275,7 +275,6 @@ class CleanupWooCommerceDuplicateProducts extends Command
         $this->moveSimpleRows('product_warranty_options', 'product_id', $duplicate->id, $keeper->id, 'warranty_rows_moved', $stats);
         $this->mergePivotRows('model_taxons', ['model_type', 'model_id', 'taxon_id'], 'model_id', $duplicate->id, $keeper->id, $stats);
         $this->mergePivotRows('model_property_values', ['model_type', 'model_id', 'property_value_id'], 'model_id', $duplicate->id, $keeper->id, $stats);
-        $this->mergePivotRows('printer_product', ['printer_id', 'product_id'], 'product_id', $duplicate->id, $keeper->id, $stats);
     }
 
     /**

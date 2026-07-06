@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Vanilo\Translation\Models\Translation;
 
 class ProductResource extends JsonResource
@@ -64,12 +63,7 @@ class ProductResource extends JsonResource
             'updated_at' => $this->updated_at?->toISOString(),
             'description' => $this->when($detailRoute, $this->translatedString('description', $this->resource->description)),
             'content' => $this->when($detailRoute, $this->translatedString('content', $this->rawValue('content'))),
-            'product_information' => $this->when($detailRoute, $this->rawValue('product_information')),
-            'product_template' => $this->when($detailRoute, $this->rawValue('product_template')),
-            'make' => $this->rawValue('make'),
-            'material_information' => $this->when($detailRoute, $this->rawValue('material_information')),
             'packaging_unit' => $this->when($detailRoute, $this->rawValue('packaging_unit')),
-            'jeritech_stock' => $this->when($detailRoute, $this->rawValue('jeritech_stock')),
             'delivery_dates_no_stock' => $this->when($detailRoute, $this->rawValue('delivery_dates_no_stock')),
             'delivery_dates_in_stock' => $this->when($detailRoute, $this->rawValue('delivery_dates_in_stock')),
             'packing_group' => $this->rawValue('packing_group'),
@@ -90,9 +84,6 @@ class ProductResource extends JsonResource
             'cross_sells' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('crossSells')),
             'suitable_printers' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('suitablePrinters')),
             'printer_finder_id' => $this->when($detailRoute, fn () => $this->resolvePrinterFinderId()),
-            'warrantyAvailable' => $this->warrantyAvailable(),
-            'warrantyOptions' => $this->warrantyOptionsPayload(),
-            'warranty' => $this->warrantyPayload(),
         ];
     }
 
@@ -104,87 +95,6 @@ class ProductResource extends JsonResource
         }
 
         return $item;
-    }
-
-    protected function warrantyPayload(): array
-    {
-        if (! $this->resource instanceof Product) {
-            return [
-                'is_available' => false,
-                'has_options' => false,
-                'options' => [],
-                'default_option' => null,
-            ];
-        }
-
-        $options = $this->activeWarrantyOptions();
-        $hasOptions = $options->isNotEmpty();
-        $optionPayloads = $this->warrantyOptionsPayload($options);
-
-        return [
-            'is_available' => $hasOptions,
-            'has_options' => $hasOptions,
-            'options' => $optionPayloads,
-            'default_option' => $hasOptions ? $this->warrantyOptionPayload($options->first()) : null,
-        ];
-    }
-
-    protected function warrantyAvailable(): bool
-    {
-        return $this->resource instanceof Product && $this->activeWarrantyOptions()->isNotEmpty();
-    }
-
-    protected function warrantyOptionsPayload(?Collection $options = null): array
-    {
-        if (! $this->resource instanceof Product) {
-            return [];
-        }
-
-        $options ??= $this->activeWarrantyOptions();
-
-        return $options->map(fn ($option) => $this->warrantyOptionPayload($option))->values()->all();
-    }
-
-    protected function activeWarrantyOptions(): Collection
-    {
-        if (! $this->resource instanceof Product) {
-            return collect();
-        }
-
-        if ($this->resource->relationLoaded('activeWarrantyOptions')) {
-            return $this->resource->activeWarrantyOptions;
-        }
-
-        return $this->resource->activeWarrantyOptions()
-            ->get(['id', 'product_id', 'warranty_group_id', 'name', 'duration_months', 'price', 'description', 'is_default', 'sort_order']);
-    }
-
-    protected function warrantyOptionPayload(object $option): array
-    {
-        $optionId = (int) ($option->id ?? 0);
-        $durationMonths = (int) ($option->duration_months ?? 0);
-
-        return [
-            'id' => $optionId,
-            'name' => (string) ($option->name ?? ''),
-            'duration_months' => $durationMonths,
-            'price' => (float) ($option->price ?? 0),
-            'description' => filled($option->description ?? null) ? (string) $option->description : null,
-            'sort_order' => (int) ($option->sort_order ?? 0),
-            'cart' => [
-                'type' => 'extended_warranty',
-                'warranty_option_id' => $optionId,
-                'sku' => $this->warrantyCartSku($optionId, $durationMonths),
-            ],
-        ];
-    }
-
-    protected function warrantyCartSku(int $optionId, int $durationMonths): string
-    {
-        $baseSku = (string) ($this->resource->sku ?: $this->resource->article_number ?: 'product-'.$this->resource->getKey());
-        $normalizedSku = Str::upper(Str::slug($baseSku, '-'));
-
-        return sprintf('%s-WAR-%dM-%d', $normalizedSku, $durationMonths, $optionId);
     }
 
     protected function relatedProductSummaries(string $relation): array

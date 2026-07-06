@@ -120,12 +120,9 @@ class User extends Authenticatable implements UserContract
         return $this->hasMany(FavoriteProduct::class);
     }
 
-    /**
-     * Get all favorite printers for this user.
-     */
     public function favoritePrinters(): HasMany
     {
-        return $this->hasMany(FavoritePrinter::class);
+        return $this->hasMany(FavoriteProduct::class)->whereRaw('1 = 0');
     }
 
     /**

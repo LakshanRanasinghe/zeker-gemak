@@ -21,8 +21,8 @@ class FavoriteProductController extends Controller
 
         $products = $favorites->map(function (FavoriteProduct $favorite) {
             $model = $favorite->product_type === 'variable'
-                ? MasterProduct::with(['translations', 'taxons', 'metas', 'material.translations', 'material.category', 'variants.propertyValues.property'])->find($favorite->product_id)
-                : Product::with(['translations', 'taxons', 'metas', 'material.translations', 'material.category'])->find($favorite->product_id);
+                ? MasterProduct::with(['translations', 'taxons', 'metas', 'variants.propertyValues.property'])->find($favorite->product_id)
+                : Product::with(['translations', 'taxons', 'metas'])->find($favorite->product_id);
 
             return $model;
         })->filter();

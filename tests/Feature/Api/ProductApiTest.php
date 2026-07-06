@@ -915,12 +915,7 @@ it('defines stable scout indexes and property-based elastic payloads for product
         'slug' => 'payload-label',
         'sku' => 'PAY-001',
         'article_number' => 'ART-PAY-001',
-        'product_information' => 'Shared payload information',
-        'product_template' => 'roll-label',
-        'make' => 'Diamondlabels',
-        'material_information' => 'Shared material facts',
         'packaging_unit' => 12,
-        'jeritech_stock' => 6,
         'delivery_dates_no_stock' => 14,
         'delivery_dates_in_stock' => 2,
         'packing_group' => 3,
@@ -1028,12 +1023,7 @@ it('defines stable scout indexes and property-based elastic payloads for product
         ->and($productPayload['catalog_material_code'])->toBe(['MAT-001'])
         ->and($productPayload['catalog_material'])->toBe(['Premium matte'])
         ->and($productPayload['compatible_brands'])->toBe(['Epson'])
-        ->and($productPayload['product_information'])->toBe('Shared payload information')
-        ->and($productPayload['product_template'])->toBe('roll-label')
-        ->and($productPayload['make'])->toBe('Diamondlabels')
-        ->and($productPayload['material_information'])->toBe('Shared material facts')
         ->and($productPayload['packaging_unit'])->toBe(12)
-        ->and($productPayload['jeritech_stock'])->toBe(6)
         ->and($productPayload['delivery_dates_no_stock'])->toBe(14)
         ->and($productPayload['delivery_dates_in_stock'])->toBe(2)
         ->and($productPayload['packing_group'])->toBe(3)

@@ -40,22 +40,17 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
         'sku',
         'article_number',
         'price',
-        'original_price',
         'excerpt',
         'description',
         'content',
-        'product_information',
         'meta_title',
         'meta_description',
         'meta_keywords',
-        'product_template',
         'state',
         'weight',
         'width',
         'height',
         'length',
-        'make',
-        'material_information',
         'packaging_unit',
         'delivery_dates_no_stock',
         'delivery_dates_in_stock',
@@ -78,7 +73,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             'delivery_dates_no_stock' => 'integer',
             'delivery_dates_in_stock' => 'integer',
             'packing_group' => 'integer',
-            'jeritech_stock' => 'integer',
             'discount' => 'float',
         ];
     }
@@ -177,7 +171,7 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
     protected function serializeAttribute($key, $value)
     {
         // For nullable numeric fields, ensure nulls stay as nulls (not empty strings)
-        if ($value === '' && in_array($key, ['price', 'original_price', 'weight', 'width', 'height', 'length', 'packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group', 'jeritech_stock'])) {
+        if ($value === '' && in_array($key, ['price', 'original_price', 'weight', 'width', 'height', 'length', 'packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group'])) {
             return null;
         }
 
@@ -201,7 +195,7 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
                 }
             }
 
-            $integerFields = ['packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group', 'jeritech_stock'];
+            $integerFields = ['packaging_unit', 'delivery_dates_no_stock', 'delivery_dates_in_stock', 'packing_group'];
             foreach ($integerFields as $field) {
                 if ($groupProduct->$field === '' || $groupProduct->$field === null) {
                     $groupProduct->$field = null;
@@ -215,8 +209,7 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             // Clean up WYSIWYG media
             WysiwygMedia::cleanupFromHtml(
                 $groupProduct->description,
-                $groupProduct->content,
-                $groupProduct->product_information
+                $groupProduct->content
             );
 
             // Delete translations
@@ -248,7 +241,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             'catalog_brand^2',
             'excerpt^2',
             'description',
-            'product_information',
         ];
     }
 
@@ -308,11 +300,10 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
             'subtitle' => $this->localizedSearchStrings($this, 'subtitle', (string) ($this->subtitle ?? '')),
             'slug' => $slug,
             'sku' => (string) ($this->sku ?? ''),
-            'catalog_brand' => CatalogFacetNormalizer::values($this->make ?? null),
+            'catalog_brand' => CatalogFacetNormalizer::values(null),
             'excerpt' => $this->localizedSearchStrings($this, 'excerpt', (string) ($this->excerpt ?? '')),
             'description' => $this->localizedSearchStrings($this, 'description', (string) ($this->description ?? '')),
             'content' => $this->localizedSearchStrings($this, 'content', (string) ($this->content ?? '')),
-            'product_information' => (string) ($this->product_information ?? ''),
             'state' => $stateValue,
             'price' => (float) $this->final_price,
             'original_price' => (float) $this->base_price,
@@ -335,7 +326,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
                         'excerpt' => LocalizedModelValue::string($this, 'excerpt', null, $locale),
                         'description' => LocalizedModelValue::string($this, 'description', null, $locale),
                         'content' => LocalizedModelValue::string($this, 'content', null, $locale),
-                        'product_information' => LocalizedModelValue::string($this, 'product_information', null, $locale),
                     ],
                 ];
             }),
@@ -369,7 +359,6 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
                 'excerpt' => ['type' => 'text'],
                 'description' => ['type' => 'text'],
                 'content' => ['type' => 'text'],
-                'product_information' => ['type' => 'text'],
                 'state' => ['type' => 'keyword'],
                 'price' => ['type' => 'float'],
                 'original_price' => ['type' => 'float'],

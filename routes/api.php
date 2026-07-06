@@ -9,14 +9,12 @@ use App\Http\Controllers\Api\CustomerAddressController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerReviewController;
 use App\Http\Controllers\Api\FaqController;
-use App\Http\Controllers\Api\FavoritePrinterController;
 use App\Http\Controllers\Api\FavoriteProductController;
 use App\Http\Controllers\Api\FilterController;
 use App\Http\Controllers\Api\GroupProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PopularProductController;
-use App\Http\Controllers\Api\PrinterController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
@@ -60,12 +58,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('{type}/{id}/check', 'check')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('check');
     });
 
-    Route::prefix('user/favorite-printers')->name('favorite-printers.')->controller(FavoritePrinterController::class)->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::post('{id}', 'store')->whereNumber('id')->name('store');
-        Route::delete('{id}', 'destroy')->whereNumber('id')->name('destroy');
-        Route::get('{id}/check', 'check')->whereNumber('id')->name('check');
-    });
 });
 
 Route::post('login', [AuthController::class, 'login']);
@@ -77,23 +69,12 @@ Route::prefix('products')->name('products.')->controller(ProductController::clas
     Route::get('/', 'index')->name('index');
     Route::get('{type}/slug/{slug}', 'showBySlug')->whereIn('type', ['simple', 'variable'])->name('show-by-slug');
     Route::get('{type}/{id}', 'show')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('show');
-    Route::post('/printer-products', 'getPrinterProducts')->name('printer-products');
-    Route::post('/product-printers', 'getProductPrinters')->name('product-printers');
-    Route::post('/compatibility', 'getCompatibility')->name('compatibility');
 });
 
 Route::prefix('group-products')->name('group-products.')->controller(GroupProductController::class)->group(function () {
     Route::get('/', 'index')->name('index');
     Route::get('slug/{slug}', 'showBySlug')->name('show-by-slug');
     Route::get('{id}', 'show')->whereNumber('id')->name('show');
-});
-
-Route::prefix('printers')->name('printers.')->controller(PrinterController::class)->group(function () {
-    Route::get('select', 'select')->name('select');
-    Route::get('/', 'index')->name('index');
-    Route::get('slug/{slug}', 'showBySlug')->name('show-by-slug');
-    Route::get('{id}', 'show')->whereNumber('id')->name('show');
-    Route::get('/search', [PrinterController::class, 'searchPrinter'])->name('search.printer');
 });
 
 Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');

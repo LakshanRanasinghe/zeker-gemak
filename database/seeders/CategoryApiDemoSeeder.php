@@ -365,7 +365,11 @@ class CategoryApiDemoSeeder extends Seeder
         /** @var Product $product */
         $product = Product::query()->updateOrCreate(
             ['slug' => $attributes['slug']],
-            $attributes
+            collect($attributes)->except([
+                'product_template', 'make', 'product_information', 'material_information',
+                'jeritech_stock', 'warranty_brand', 'warranty_duration_years',
+                'exclude_from_custom_warranty', 'warranty_group_id',
+            ])->all()
         );
 
         $product->taxons()->sync(collect($taxons)->pluck('id')->all());
@@ -380,7 +384,11 @@ class CategoryApiDemoSeeder extends Seeder
         /** @var MasterProduct $product */
         $product = MasterProduct::query()->updateOrCreate(
             ['slug' => $attributes['slug']],
-            $attributes
+            collect($attributes)->except([
+                'product_template', 'make', 'product_information', 'material_information',
+                'jeritech_stock', 'warranty_brand', 'warranty_duration_years',
+                'exclude_from_custom_warranty', 'warranty_group_id',
+            ])->all()
         );
 
         $product->taxons()->sync(collect($taxons)->pluck('id')->all());
@@ -662,7 +670,11 @@ class CategoryApiDemoSeeder extends Seeder
         /** @var GroupProduct $group */
         $group = GroupProduct::query()->updateOrCreate(
             ['slug' => $attributes['slug']],
-            collect($attributes)->except(['discount'])->all()
+            collect($attributes)->except([
+                'discount', 'product_template', 'make', 'product_information',
+                'material_information', 'jeritech_stock', 'warranty_brand',
+                'warranty_duration_years', 'exclude_from_custom_warranty', 'warranty_group_id',
+            ])->all()
         );
 
         // Set discount separately to allow price auto-calculation in model boot

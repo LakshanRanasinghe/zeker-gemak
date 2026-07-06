@@ -44,7 +44,6 @@ new class extends Component {
                     ->orWhere('article_number', 'like', '%' . $this->search . '%')
                     ->orWhere('title', 'like', '%' . $this->search . '%');
             })
-            ->where(fn($q) => $q->where('product_template', '!=', 'warranty')->orWhereNull('product_template'))
             ->take(10)
             ->get()
             ->map(fn (Product $product) => [

@@ -15,7 +15,7 @@ class GroupProductController extends Controller
         $perPage = (int) $request->query('per_page', 15);
 
         $groupProducts = GroupProduct::query()
-            ->with(['taxons', 'material.category'])
+            ->with(['taxons'])
             ->withCount('items')
             ->paginate($perPage);
 
@@ -45,7 +45,6 @@ class GroupProductController extends Controller
     {
         return [
             'taxons',
-            'material.category',
             'items.product' => function ($query) {
                 $query->with(['translations', 'media']);
             },

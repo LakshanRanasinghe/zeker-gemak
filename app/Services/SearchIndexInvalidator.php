@@ -68,7 +68,7 @@ class SearchIndexInvalidator
 
         $this->reindexPrinter($printerId);
         $this->reindexProducts(
-            DB::table('printer_product')->where('printer_id', $printerId)->pluck('product_id')
+            collect()
         );
     }
 
@@ -91,7 +91,7 @@ class SearchIndexInvalidator
         $this->reindexProducts($productIds);
         $this->reindexMasterProducts($masterProductIds);
         $this->reindexPrinters(
-            DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
+            collect()
         );
     }
 
@@ -108,7 +108,7 @@ class SearchIndexInvalidator
         $this->reindexProducts($productIds);
         $this->reindexMasterProducts($masterProductIds);
         $this->reindexPrinters(
-            DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
+            collect()
         );
     }
 
@@ -138,7 +138,7 @@ class SearchIndexInvalidator
         $this->reindexProducts($productIds);
         $this->reindexForTaxons($taxonIds);
         $this->reindexPrinters(
-            DB::table('printer_product')->whereIn('product_id', $productIds)->pluck('printer_id')
+            collect()
         );
     }
 

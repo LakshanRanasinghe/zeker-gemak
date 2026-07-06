@@ -4,9 +4,7 @@ use App\Mail\OrderPlacedCustomer;
 use App\Models\GroupProduct;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\ProductWarrantyOption;
 use App\Models\User;
-use App\Models\WarrantyGroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Konekt\Address\Models\Country;
@@ -163,109 +161,6 @@ test('it returns validation error for invalid group product', function () {
 
     $response = postJson('/api/orders', $payload);
     $response->assertStatus(422);
-});
-
-test('an order includes extended warranty details as an order item and in the customer email', function () {
-    $user = User::factory()->create();
-    Sanctum::actingAs($user);
-
-    Country::firstOrCreate(['id' => 'NL'], [
-        'name' => 'Netherlands',
-        'is_active' => true,
-        'phonecode' => '31',
-        'is_eu_member' => true,
-    ]);
-
-    $warrantyGroup = WarrantyGroup::create([
-        'name' => 'Printer Warranty',
-        'is_active' => true,
-    ]);
-
-    $product = Product::create([
-        'name' => 'Demo Citizen Ribbon 024',
-        'title' => 'Demo Citizen Ribbon 024',
-        'slug' => 'demo-citizen-ribbon-024',
-        'sku' => 'DEMO-CITIZEN-024',
-        'article_number' => 'ART-DEMO-CITIZEN-024',
-        'price' => 14.90,
-        'original_price' => 14.90,
-        'stock' => 5,
-        'state' => 'active',
-        'product_type' => 'simple',
-        'warranty_group_id' => $warrantyGroup->id,
-    ]);
-
-    $option = ProductWarrantyOption::create([
-        'warranty_group_id' => $warrantyGroup->id,
-        'name' => '2 Years Extended Warranty',
-        'duration_months' => 24,
-        'price' => 20,
-        'is_default' => true,
-        'is_active' => true,
-    ]);
-
-    $payload = [
-        'status' => 'pending',
-        'notes' => 'Customer order via checkout',
-        'billing_firstname' => 'Hasith',
-        'billing_lastname' => 'Udayanga',
-        'billing_email' => 'uhasith5@gmail.com',
-        'billing_phone' => '0715170013',
-        'billing_address' => 'Oenerweg 30',
-        'billing_city' => 'Heerde',
-        'billing_postalcode' => '8181 RJ',
-        'billing_country_id' => 'NL',
-        'shipping_amount' => 9.95,
-        'tax_amount' => 9.4185,
-        'payment_method' => 'banktransfer',
-        'lang' => 'en',
-        'order_items' => [[
-            'product_id' => $product->id,
-            'name' => 'Demo Citizen Ribbon 024',
-            'price' => 14.90,
-            'quantity' => 1,
-            'is_group_product' => false,
-            'warranty_option_id' => $option->id,
-            'extended_warranty_id' => $option->id,
-            'extended_warranty_name' => '2 Years Extended Warranty',
-            'extended_warranty_sku' => 'DEMO-CITIZEN-024-WARRANTY',
-            'extended_warranty_price' => 20,
-            'extended_warranty_quantity' => 1,
-            'extended_warranty_duration_months' => 24,
-            'extended_warranty' => [
-                'option_id' => $option->id,
-                'name' => '2 Years Extended Warranty',
-                'sku' => 'DEMO-CITIZEN-024-WARRANTY',
-                'price' => 20,
-                'quantity' => 1,
-                'duration_months' => 24,
-                'parent_sku' => 'DEMO-CITIZEN-024',
-                'parent_name' => 'Demo Citizen Ribbon 024',
-            ],
-        ]],
-    ];
-
-    $response = postJson('/api/orders', $payload);
-
-    $response->assertOk()
-        ->assertJsonPath('data.items.1.name', '2 Years Extended Warranty')
-        ->assertJsonPath('data.items.1.price', 20)
-        ->assertJsonPath('data.items.1.configuration.type', 'extended_warranty')
-        ->assertJsonPath('data.items.1.configuration.parent_name', 'Demo Citizen Ribbon 024')
-        ->assertJsonPath('data.items.1.configuration.duration_months', 24)
-        ->assertJsonPath('data.items.1.configuration.sku', 'DEMO-CITIZEN-024-WARRANTY');
-
-    $order = Order::with(['items', 'billpayer.address', 'shippingAddress'])->firstOrFail();
-
-    expect($order->items)->toHaveCount(2)
-        ->and((float) $order->itemsTotal())->toBe(34.90)
-        ->and(round((float) $order->total(), 4))->toBe(54.2685);
-
-    (new OrderPlacedCustomer($order))
-        ->assertSeeInHtml('2 Years Extended Warranty')
-        ->assertSeeInHtml('For: Demo Citizen Ribbon 024')
-        ->assertSeeInHtml('Duration: 24 months')
-        ->assertSeeInHtml('DEMO-CITIZEN-024-WARRANTY');
 });
 
 test('order placed email shows group product name for expanded child items', function () {

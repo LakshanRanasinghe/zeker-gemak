@@ -267,7 +267,6 @@ final class CustomerTable extends PowerGridComponent
     {
         // Always clean up non-essential associated data
         $user->favoriteProducts()->delete();
-        $user->favoritePrinters()->delete();
         $user->tokens()->delete();
         DB::table('sessions')->where('user_id', $user->id)->delete();
 

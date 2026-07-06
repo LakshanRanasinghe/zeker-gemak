@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use JeroenG\Explorer\Application\Explored;
@@ -26,7 +27,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
     use Searchable;
 
     protected $casts = [
-        'jeritech_stock' => 'integer',
         'packaging_unit' => 'integer',
         'delivery_dates_no_stock' => 'integer',
         'delivery_dates_in_stock' => 'integer',
@@ -36,12 +36,11 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
     protected static function booted(): void
     {
         static::deleting(function (MasterProduct $product) {
-            WysiwygMedia::cleanupFromHtml($product->description, $product->content, $product->product_information);
+            WysiwygMedia::cleanupFromHtml($product->description, $product->content);
             $product->translations()->delete();
             $product->metas()->delete();
             $product->removeFromAllChannels();
             $product->taxons()->detach();
-            $product->printers()->detach();
             $product->propertyValues()->detach();
             $product->videos()->detach();
 
@@ -144,8 +143,7 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
 
     public function printers()
     {
-        return $this->belongsToMany(Post::class, 'printer_product', 'master_product_id', 'printer_id')
-            ->where('post_type', 'printer');
+        return $this->hasMany(Post::class, 'id', 'id')->whereRaw('1 = 0');
     }
 
     public function toSearchableArray(): array
@@ -177,7 +175,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
             'properties.detectie',
             'excerpt^2',
             'description',
-            'product_information',
         ];
     }
 
@@ -206,7 +203,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
                 'excerpt' => ['type' => 'text'],
                 'description' => ['type' => 'text'],
                 'content' => ['type' => 'text'],
-                'product_information' => ['type' => 'text'],
                 'state' => ['type' => 'keyword'],
                 'price' => ['type' => 'float'],
                 'original_price' => ['type' => 'float'],
@@ -294,7 +290,7 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
         $name = $this->rawString('name');
         $title = $this->rawString('title') ?: $name;
         $mainImage = $this->mainImageUrlForSearch();
-        $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, $this->rawString('make'));
+        $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, null);
         $catalogMaterial = CatalogFacetNormalizer::materialNamesFromProperties($propertyValues);
 
         return array_filter([
@@ -312,7 +308,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
             'excerpt' => $this->localizedSearchStrings($this, 'excerpt', $this->rawString('excerpt')),
             'description' => $this->localizedSearchStrings($this, 'description', $this->rawString('description')),
             'content' => $this->localizedSearchStrings($this, 'content', $this->rawString('content')),
-            'product_information' => $this->rawString('product_information'),
             'state' => $this->stateValue(),
             'price' => $this->price !== null ? (float) $this->price : null,
             'original_price' => $this->original_price !== null ? (float) $this->original_price : null,
@@ -359,7 +354,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
             'taxons.parent.media',
             'taxons.parent.parent:id,slug,parent_id,name',
             'taxons.parent.parent.media',
-            'printers:id',
             'variants:id,master_product_id,sku,stock,deleted_at',
         ]);
     }
@@ -375,7 +369,6 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
             'taxons.parent.media',
             'taxons.parent.parent:id,slug,parent_id,name',
             'taxons.parent.parent.media',
-            'printers:id',
             'variants:id,master_product_id,sku,stock,deleted_at',
         ]);
     }
@@ -537,14 +530,7 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
 
     protected function printerIdsForSearch(): array
     {
-        $printers = $this->relationLoaded('printers') ? $this->printers : $this->printers()->get();
-
-        return $printers
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        return [];
     }
 
     protected function categoriesHierarchyForSearch(): array
@@ -710,5 +696,10 @@ class MasterProduct extends BaseMasterProductModel implements BaseMasterProductC
         $url = $this->getFirstMediaUrl('main');
 
         return $url !== '' ? $url : null;
+    }
+
+    public function activeWarrantyOptions(): HasMany
+    {
+        return $this->hasMany(ProductWarrantyOption::class, 'id', 'id')->whereRaw('1 = 0');
     }
 }

@@ -632,18 +632,10 @@ class OptimizedWooCommerceProductSyncService
 
         $articleNumber = $this->extractArticleNumber($productData);
         $packing_group = 1; // default value
-        $jaritechStock = null;
         $metaData = $productData['meta_data'] ?? [];
-        $make = '';
         foreach ($metaData as $meta) {
             if ($meta['key'] === '_custom_product_text_groupof') {
                 $packing_group = $meta['value'];
-            }
-            if ($meta['key'] === '_stock_jaritech') {
-                $jaritechStock = $meta['value'];
-            }
-            if ($meta['key'] === '_custom_product_text_merk') {
-                $make = $meta['value'];
             }
         }
 
@@ -652,15 +644,6 @@ class OptimizedWooCommerceProductSyncService
             $packing_group = 1; // default to 1
         } else {
             $packing_group = (int) $packing_group;
-        }
-
-        // Convert empty jeritech_stock to null (integer column cannot accept empty strings)
-        if ($jaritechStock === '' || $jaritechStock === null) {
-            $jaritechStock = null;
-        } elseif (is_numeric($jaritechStock)) {
-            $jaritechStock = (int) $jaritechStock;
-        } else {
-            $jaritechStock = null;
         }
 
         // Extract SEO metadata from Yoast
@@ -681,10 +664,8 @@ class OptimizedWooCommerceProductSyncService
             'content' => (string) ($productData['description'] ?? ''),
             'state' => $state,
             'packing_group' => $packing_group,
-            'jeritech_stock' => (int) $jaritechStock,
             'meta_title' => $metaTitle,
             'meta_description' => $metaDescription,
-            'make' => $make,
             'discount_group_id' => $this->extractDiscountGroupId($productData),
         ];
     }
@@ -965,25 +946,18 @@ class OptimizedWooCommerceProductSyncService
         $attributes = $productData['attributes'] ?? [];
 
         if (empty($attributes)) {
-            app(PrinterProductCompatibilitySyncService::class)->syncProduct($product);
-
             return;
         }
 
-        // Build property slug => value pairs for bulk sync
         $propertyValues = [];
 
-        // Process each attribute
         foreach ($attributes as $attribute) {
-            // Create a URL-friendly key from the attribute name
-            // Example: "Product Size" becomes "product-size"
             $slug = Str::slug((string) ($attribute['name'] ?? ''));
 
             if (empty($slug) || $slug == 'articlenumber') {
-                continue; // Skip if no valid key
+                continue;
             }
 
-            // Ensure the property exists
             Property::firstOrCreate(
                 ['slug' => $slug],
                 [
@@ -992,24 +966,18 @@ class OptimizedWooCommerceProductSyncService
                 ]
             );
 
-            // Get first non-empty option value
             $options = $attribute['options'] ?? [];
             foreach ($options as $value) {
                 if (! empty($value)) {
-                    // Use first value only (multi-value support can be added later if needed)
                     $propertyValues[$slug] = $value;
                     break;
                 }
             }
         }
 
-        // Sync all properties at once using Vanilo's built-in method
-        // This properly handles duplicates by replacing existing values
         if (! empty($propertyValues)) {
             $product->replacePropertyValuesByScalar($propertyValues);
         }
-
-        app(PrinterProductCompatibilitySyncService::class)->syncProduct($product);
     }
 
     /**

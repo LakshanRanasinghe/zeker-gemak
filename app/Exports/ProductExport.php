@@ -41,12 +41,9 @@ class ProductExport implements FromCollection, WithHeadings
             'Stock' => 'Stock',
             'Material' => 'Material',
             'Categories' => 'Categories',
-            'Product Template' => 'Product Template',
             'Description' => 'Description',
             'Excerpt' => 'Excerpt',
             'Content' => 'Content',
-            'Product Information' => 'Product Information',
-            'Material Information' => 'Material Information',
             'Packaging Unit' => 'Packaging Unit',
             'Delivery Days (In Stock)' => 'Delivery Days (In Stock)',
             'Delivery Days (No Stock)' => 'Delivery Days (No Stock)',
@@ -80,12 +77,9 @@ class ProductExport implements FromCollection, WithHeadings
             'Stock' => 'Voorraad',
             'Material' => 'Materiaal',
             'Categories' => 'Categorieën',
-            'Product Template' => 'Productsjabloon',
             'Description' => 'Beschrijving',
             'Excerpt' => 'Samenvatting',
             'Content' => 'Inhoud',
-            'Product Information' => 'Productinformatie',
-            'Material Information' => 'Materiaalinformatie',
             'Packaging Unit' => 'Verpakkingseenheid',
             'Delivery Days (In Stock)' => 'Levertijd (Op voorraad)',
             'Delivery Days (No Stock)' => 'Levertijd (Niet op voorraad)',
@@ -160,7 +154,6 @@ class ProductExport implements FromCollection, WithHeadings
             $this->h('Stock'),
             $this->h('Material'),
             $this->h('Categories'),
-            $this->h('Product Template'),
         ]);
 
         if ($isBoth) {
@@ -176,8 +169,6 @@ class ProductExport implements FromCollection, WithHeadings
         }
 
         return array_merge($headings, [
-            $this->h('Product Information'),
-            $this->h('Material Information'),
             $this->h('Packaging Unit'),
             $this->h('Delivery Days (In Stock)'),
             $this->h('Delivery Days (No Stock)'),
@@ -293,14 +284,11 @@ class ProductExport implements FromCollection, WithHeadings
             $product->stock,
             '',
             $this->resolveCategories($product),
-            $product->product_template ?? '',
         ]);
 
         $row = array_merge($row, $this->buildTranslatableColumns($product, $t, ['description', 'excerpt', 'content'], true));
 
         return array_merge($row, [
-            strip_tags($product->product_information ?? ''),
-            strip_tags($product->material_information ?? ''),
             $product->packaging_unit,
             $product->delivery_dates_in_stock,
             $product->delivery_dates_no_stock,
@@ -341,14 +329,11 @@ class ProductExport implements FromCollection, WithHeadings
             '', // Stock (master level)
             '',
             $this->resolveCategories($master),
-            $master->product_template ?? '',
         ]);
 
         $row = array_merge($row, $this->buildTranslatableColumns($master, $t, ['description', 'excerpt', 'content'], true));
 
         return array_merge($row, [
-            strip_tags($master->product_information ?? ''),
-            strip_tags($master->material_information ?? ''),
             $master->packaging_unit,
             $master->delivery_dates_in_stock,
             $master->delivery_dates_no_stock,

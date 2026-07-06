@@ -4,6 +4,8 @@ use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
+use Vanilo\Properties\Models\Property;
+use Vanilo\Properties\Models\PropertyValue;
 
 use function Pest\Laravel\artisan;
 
@@ -26,14 +28,13 @@ afterEach(function () {
 });
 
 it('generates a google merchant xml feed for active products', function () {
-    Product::create([
+    $product = Product::create([
         'name' => 'CW-D6000 Series Inktcartridges Geel',
         'title' => 'CW-D6000 Series Inktcartridges Geel',
         'slug' => 'cw-d6000-series-inktcartridges-geel',
         'sku' => 'CW-D6000-Y',
         'price' => 89.95,
         'description' => '<p>Originele gele inktcartridge voor de CW-D6000 serie.</p>',
-        'make' => 'Epson',
         'stock' => 12,
         'gtin' => '8715946671251',
         'length' => 120,
@@ -41,6 +42,11 @@ it('generates a google merchant xml feed for active products', function () {
         'state' => 'active',
         'product_type' => 'simple',
     ]);
+
+    $brandProperty = Property::create(['name' => 'Brand', 'slug' => 'brand', 'type' => 'text']);
+    $product->propertyValues()->attach(
+        PropertyValue::create(['property_id' => $brandProperty->id, 'value' => 'epson', 'title' => 'Epson'])->id
+    );
 
     Product::create([
         'name' => 'Draft Product',

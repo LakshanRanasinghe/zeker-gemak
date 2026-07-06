@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SyncWooCommercePrintersJob;
 use App\Models\MasterProduct;
 use App\Models\Post;
 use App\Models\Product;
@@ -57,9 +56,6 @@ class FreshSyncWordPressData extends Command
         $this->components->info('Syncing discount groups...');
         $this->call('app:sync-woocommerce-discount-groups');
 
-        $this->components->info('Syncing printers...');
-        $this->syncPrinters($chunkSize, $delayMs, $skipMedia);
-
         $this->components->info('Syncing categories...');
         $this->syncCategories($categorySyncService, $chunkSize, $logger);
 
@@ -97,7 +93,6 @@ class FreshSyncWordPressData extends Command
 
         try {
             DB::table('group_products')->update([
-                'material_id' => null,
                 'discount_group_id' => null,
             ]);
 
@@ -145,11 +140,9 @@ class FreshSyncWordPressData extends Command
     private function tablesToTruncate(): array
     {
         return [
-            'printer_product',
             'group_product_items',
             'group_products',
             'favorite_products',
-            'favorite_printers',
             'popular_products',
             'product_warranty_options',
             'product_relations',
@@ -169,32 +162,7 @@ class FreshSyncWordPressData extends Command
         ];
     }
 
-    private function syncPrinters(int $chunkSize, int $delayMs, bool $skipMedia): void
-    {
-        $page = 1;
-        $batch = 1;
 
-        do {
-            $stats = (new SyncWooCommercePrintersJob(
-                page: $page,
-                perPage: $chunkSize,
-                batch: $batch,
-                locale: 'nl',
-                delayMs: $delayMs,
-                skipMedia: $skipMedia,
-                queueNext: false,
-            ))->handle();
-
-            if (! (bool) ($stats['success'] ?? false)) {
-                throw new \RuntimeException("Printer sync failed on page {$page}.");
-            }
-
-            $synced = (int) ($stats['synced'] ?? 0);
-            $this->line("  Page {$page}: {$synced} printers");
-            $page++;
-            $batch++;
-        } while ($synced === $chunkSize);
-    }
 
     private function syncCategories(OptimizedWooCommerceCategorySyncService $categorySyncService, int $chunkSize, callable $logger): void
     {

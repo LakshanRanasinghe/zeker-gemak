@@ -54,7 +54,7 @@ new class extends Component {
 
     public string $content = '';
 
-    public string $product_information = '';
+
 
     // SEO
     public string $meta_title = '';
@@ -62,7 +62,7 @@ new class extends Component {
     public string $meta_description = '';
 
     // Configuration
-    public string $product_template = 'label';
+
 
     public string $state = 'active';
 
@@ -76,13 +76,7 @@ new class extends Component {
     public $length = 0.0;
 
     // Additional info
-    public string $make = '';
-
-    public string $material_information = '';
-
     public ?int $packaging_unit = null;
-
-    public ?int $jeritech_stock = null;
 
     public ?int $delivery_dates_no_stock = null;
 
@@ -163,17 +157,14 @@ new class extends Component {
             'excerpt' => 'nullable|string|max:500',
             'description' => 'nullable|string',
             'content' => 'nullable|string',
-            'product_information' => 'nullable|string',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
-            'product_template' => 'nullable|string',
             'state' => 'required|string|in:draft,active,unavailable',
             'weight' => 'nullable|numeric|gte:0',
             'width' => 'nullable|numeric|gte:0',
             'height' => 'nullable|numeric|gte:0',
             'length' => 'nullable|numeric|gte:0',
-            'make' => 'nullable|string|max:255',
-            'material_information' => 'nullable|string|max:255',
+
             'packaging_unit' => 'nullable|integer|min:0',
             'delivery_dates_no_stock' => 'nullable|integer|min:0',
             'delivery_dates_in_stock' => 'nullable|integer|min:0',
@@ -212,19 +203,14 @@ new class extends Component {
             $this->excerpt = (string) $groupProduct->excerpt;
             $this->description = (string) $groupProduct->description;
             $this->content = (string) $groupProduct->content;
-            $this->product_information = (string) $groupProduct->product_information;
             $this->meta_title = (string) $groupProduct->meta_title;
             $this->meta_description = (string) $groupProduct->meta_description;
-            $this->product_template = (string) $groupProduct->product_template;
             $this->state = (string) $groupProduct->state;
             $this->weight = (float) $groupProduct->weight;
             $this->width = (float) $groupProduct->width;
             $this->height = (float) $groupProduct->height;
             $this->length = (float) $groupProduct->length;
-            $this->make = (string) $groupProduct->make;
-            $this->material_information = (string) $groupProduct->material_information;
             $this->packaging_unit = $groupProduct->packaging_unit;
-            $this->jeritech_stock = $groupProduct->jeritech_stock;
             $this->delivery_dates_no_stock = $groupProduct->delivery_dates_no_stock;
             $this->delivery_dates_in_stock = $groupProduct->delivery_dates_in_stock;
             $this->packing_group = $groupProduct->packing_group;
@@ -391,19 +377,14 @@ new class extends Component {
             'excerpt' => $this->excerpt,
             'description' => $this->description,
             'content' => $this->content,
-            'product_information' => $this->product_information,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
-            'product_template' => $this->product_template,
             'state' => $this->state,
             'weight' => $this->weight,
             'width' => $this->width,
             'height' => $this->height,
             'length' => $this->length,
-            'make' => $this->make,
-            'material_information' => $this->material_information,
             'packaging_unit' => $this->packaging_unit,
-            'jeritech_stock' => $this->jeritech_stock,
             'delivery_dates_no_stock' => $this->delivery_dates_no_stock,
             'delivery_dates_in_stock' => $this->delivery_dates_in_stock,
             'packing_group' => $this->packing_group,
@@ -1048,19 +1029,9 @@ new class extends Component {
                     <x-wysiwyg-editor wire:model="product_information" :defer-delete="$editMode"
                         label="{{ __('Product Information') }}" placeholder="Detailed bundle information..." />
 
-                    <div class="flex flex-col md:flex-row gap-6">
-                        <div class="flex-1">
-                            <flux:input wire:model="material_information" label="{{ __('Material Information') }}"
-                                placeholder="Material details..." />
-                        </div>
-                        <div class="flex-1">
-                            <flux:select wire:model="material_id" label="{{ __('Primary Material') }}">
-                                <option value="">{{ __('— None —') }}</option>
-                                @foreach ($this->materials as $material)
-                                <option value="{{ $material->id }}">{{ $material->title }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
+                    <div>
+                        <flux:input wire:model="material_information" label="{{ __('Material Information') }}"
+                            placeholder="Material details..." />
                     </div>
                 </flux:card> --}}
 

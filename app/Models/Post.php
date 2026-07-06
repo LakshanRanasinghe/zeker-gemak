@@ -52,9 +52,6 @@ class Post extends Model implements Explored, HasMedia
             $post->translations()->delete();
             $post->propertyValues()->detach();
 
-            if ($post->post_type === 'printer') {
-                $post->products()->detach();
-            }
         });
     }
 
@@ -151,7 +148,7 @@ class Post extends Model implements Explored, HasMedia
 
     public function products()
     {
-        return $this->belongsToMany(Product::class, 'printer_product', 'printer_id', 'product_id');
+        return $this->hasMany(Product::class, 'id', 'id')->whereRaw('1 = 0');
     }
 
     // Scout methods for Elasticsearch indexing

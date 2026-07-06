@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\GroupProduct;
-use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
 use App\Services\SearchIndexInvalidator;
@@ -35,39 +34,6 @@ it('reindexes a product when its translation changes', function () {
     ]);
 
     expect($indexedKeys)->toContain('product_'.$product->id);
-});
-
-it('reindexes related products when a printer changes', function () {
-    $product = catalog_test_product();
-    $printer = Post::factory()->printer()->create();
-    $printer->products()->attach($product->id);
-    $indexedKeys = [];
-
-    fakeCatalogScoutEngine($indexedKeys);
-
-    $printer->update(['title' => 'Updated Printer']);
-
-    expect($indexedKeys)
-        ->toContain('printer_'.$printer->id)
-        ->toContain('product_'.$product->id);
-});
-
-it('reindexes related products when a printer translation changes', function () {
-    $product = catalog_test_product();
-    $printer = Post::factory()->printer()->create();
-    $printer->products()->attach($product->id);
-    $indexedKeys = [];
-
-    fakeCatalogScoutEngine($indexedKeys);
-
-    Translation::createForModel($printer, 'en', [
-        'title' => 'English Printer',
-        'slug' => 'english-printer',
-    ]);
-
-    expect($indexedKeys)
-        ->toContain('printer_'.$printer->id)
-        ->toContain('product_'.$product->id);
 });
 
 it('reindexes assigned products when a category translation changes', function () {

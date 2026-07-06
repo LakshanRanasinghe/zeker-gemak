@@ -9,7 +9,6 @@ use App\Models\Post;
 use App\Models\Product;
 use App\Models\ProductRelation;
 use App\Models\WarrantyGroup;
-use App\Services\PrinterProductCompatibilitySyncService;
 use App\Services\ProductContentGenerator;
 use App\Services\SkuGenerator;
 use Flux\Flux;
@@ -88,17 +87,7 @@ new class extends Component
 
     public string $meta_description_en = '';
 
-    public string $product_template = 'label';
-
-    public string $product_information = '';
-
-    public string $make = '';
-
-    public string $material_information = '';
-
     public ?int $packaging_unit = null;
-
-    public ?int $jeritech_stock = null;
 
     public ?int $delivery_dates_no_stock = null;
 
@@ -116,7 +105,6 @@ new class extends Component
 
     public array $selected_taxons = [];
 
-    public array $selected_printers = [];
 
     // Edit mode
     public ?int $productId = null;
@@ -126,33 +114,11 @@ new class extends Component
     public string $originalProductType = 'simple';
 
     // Meta fields
-    public string $finishing = '';
-
-    public string $glue = '';
-
     public string $brand = '';
-
-    public string $material_code = '';
 
 
 
     public ?string $tax_category_id = null;
-
-    public string $druktype = '';
-
-    public string $printer_type = '';
-
-    public string $meta_width = '';
-
-    public string $meta_height = '';
-
-    public string $kern = '';
-
-    public string $buitendia = '';
-
-    public string $detectie = '';
-
-    public string $merken = '';
 
     public array $up_sell_ids = [];
 
@@ -166,11 +132,7 @@ new class extends Component
 
     public $discounts = [];
 
-    public bool $warrantyAvailable = false;
 
-    public ?int $warranty_group_id = null;
-
-    public string $warranty_group_search = '';
 
     // Locale switching
     public string $selectedLocale = '';
@@ -368,12 +330,7 @@ new class extends Component
         $this->meta_title_en = (string) ($model->meta_title_en ?? '');
         $this->meta_description_nl = (string) ($model->meta_description_nl ?? '');
         $this->meta_description_en = (string) ($model->meta_description_en ?? '');
-        $this->product_template = (string) $model->product_template;
-        $this->product_information = (string) $model->product_information;
-        $this->make = (string) $model->make;
-        $this->material_information = (string) $model->material_information;
         $this->packaging_unit = $model->packaging_unit !== null ? (int) $model->packaging_unit : null;
-        $this->jeritech_stock = $model->jeritech_stock !== null ? (int) $model->jeritech_stock : null;
         $this->delivery_dates_no_stock = $model->delivery_dates_no_stock !== null ? (int) $model->delivery_dates_no_stock : null;
         $this->delivery_dates_in_stock = $model->delivery_dates_in_stock !== null ? (int) $model->delivery_dates_in_stock : null;
         $this->packing_group = $model->packing_group !== null ? (int) $model->packing_group : null;
@@ -382,8 +339,6 @@ new class extends Component
         $this->tax_category_id = $model->tax_category_id ? (string) $model->tax_category_id : null;
         $this->state = (string) $model->state->value();
         $this->discount_group_id = (int) $model->discount_group_id;
-        $this->warranty_group_id = $model instanceof Product && $model->warranty_group_id ? (int) $model->warranty_group_id : null;
-        $this->warrantyAvailable = $this->warranty_group_id !== null;
 
         if ($this->discount_group_id) {
             $this->updatedDiscountGroupId($this->discount_group_id);
@@ -407,7 +362,6 @@ new class extends Component
         }
 
         $this->selected_taxons = $model->taxons->pluck('id')->toArray();
-        $this->selected_printers = $model->printers->pluck('id')->toArray();
 
         if ($type === 'variable') {
             $this->populateAttributesAndVariations($model);
@@ -491,12 +445,7 @@ new class extends Component
             'meta_title_en' => 'nullable|string|max:255',
             'meta_description_nl' => 'nullable|string|max:500',
             'meta_description_en' => 'nullable|string|max:500',
-            'product_template' => 'nullable|string|in:'.implode(',', array_keys(config('products.product_template', []))),
-            'product_information' => 'nullable|string',
-            'make' => 'nullable|string|max:255',
-            'material_information' => 'nullable|string|max:255',
             'packaging_unit' => 'nullable|integer|min:0',
-            'jeritech_stock' => 'nullable|integer|min:0',
             'delivery_dates_no_stock' => 'nullable|integer|min:0',
             'delivery_dates_in_stock' => 'nullable|integer|min:0',
             'packing_group' => 'nullable|integer|min:0',
@@ -506,26 +455,11 @@ new class extends Component
             'gallery_images.*' => 'image|max:10240',
             'selected_taxons' => 'nullable|array',
             'selected_taxons.*' => 'exists:taxons,id',
-            'selected_printers' => 'nullable|array',
-            'selected_printers.*' => 'exists:posts,id',
             // Meta fields
-            'finishing' => 'nullable|string|max:255',
-            'glue' => 'nullable|string|max:255',
             'brand' => 'nullable|string|max:255',
 
             'tax_category_id' => 'nullable|exists:tax_categories,id',
-            'material_code' => 'nullable|string|max:255',
-            'druktype' => 'nullable|string|max:255',
-            'printer_type' => 'nullable|string|max:255',
-            'meta_width' => 'nullable|string|max:255',
-            'meta_height' => 'nullable|string|max:255',
-            'kern' => 'nullable|string|max:255',
-            'buitendia' => 'nullable|string|max:255',
-            'detectie' => 'nullable|string|max:255',
-            'merken' => 'nullable|string|max:255',
             'discount_group_id' => 'nullable|integer|in:0,'.implode(',', DB::table('discount_groups')->pluck('id')->toArray()),
-            'warrantyAvailable' => 'boolean',
-            'warranty_group_id' => 'nullable|required_if:warrantyAvailable,true|integer|exists:warranty_groups,id',
             'up_sell_ids' => 'nullable|array',
             'up_sell_ids.*' => 'integer|exists:products,id',
             'cross_sell_ids' => 'nullable|array',
@@ -564,13 +498,10 @@ new class extends Component
             'gallery_images.*.max' => __('Each image max 10MB.'),
             'selected_taxons.required' => __('Select at least one category.'),
             'packaging_unit.integer' => __('Must be a whole number.'),
-            'jeritech_stock.integer' => __('Must be a whole number.'),
             'delivery_dates_no_stock.integer' => __('Must be a whole number.'),
             'delivery_dates_in_stock.integer' => __('Must be a whole number.'),
             'packing_group.integer' => __('Must be a whole number.'),
             'discount_group_id.exists' => __('Discount group not found.'),
-            'warranty_group_id.required_if' => __('Select a warranty group when warranty is available.'),
-            'warranty_group_id.exists' => __('Warranty group not found.'),
         ];
     }
 
@@ -769,7 +700,6 @@ new class extends Component
             'excerpt' => __('Excerpt'),
             'short_description' => __('Short Description'),
             'content' => __('Content'),
-            'product_information' => __('Product Information'),
             'meta_title' => __('Meta Title'),
             'meta_description' => __('Meta Description'),
         ];
@@ -1112,19 +1042,6 @@ new class extends Component
 
         $validated = $validator->validated();
         $validated['name'] = $validated['title'];
-        $validated['warranty_group_id'] = $this->product_type === 'simple' && $this->warrantyAvailable
-            ? $this->warranty_group_id
-            : null;
-        unset($validated['warrantyAvailable']);
-
-        $template = $validated['product_template'] ?? 'label';
-
-        if ($template !== 'label') {
-            $labelOnlyFields = ['finishing', 'glue', 'material_information', 'brand', 'material_code', 'druktype', 'printer_type', 'meta_width', 'meta_height', 'kern', 'buitendia', 'detectie', 'merken', 'packaging_unit', 'jeritech_stock'];
-            foreach ($labelOnlyFields as $field) {
-                $validated[$field] = null;
-            }
-        }
 
         $metaData = collect($validated)->only(config('products.meta_fields'))->toArray();
 
@@ -1178,15 +1095,13 @@ new class extends Component
         $this->uploadMedia($productToAttachMedia);
 
         $productToAttachMedia->taxons()->sync($this->selected_taxons);
-        $productToAttachMedia->printers()->sync($this->selected_printers);
+
 
         $this->syncProductRelations($productToAttachMedia);
 
         $this->syncProductProperties($productToAttachMedia);
 
-        if ($productToAttachMedia instanceof Product) {
-            app(PrinterProductCompatibilitySyncService::class)->syncProduct($productToAttachMedia);
-        }
+
 
         $productToAttachMedia->searchable();
 
@@ -1361,7 +1276,6 @@ new class extends Component
     public function relatableProducts()
     {
         return Product::query()
-            ->where(fn ($q) => $q->where('product_template', '!=', 'warranty')->orWhereNull('product_template'))
             ->when($this->editMode && $this->originalProductType === 'simple' && $this->productId, fn ($q) => $q->where('id', '!=', $this->productId))
             ->orderBy('title')
             ->limit(1000)
@@ -1403,14 +1317,14 @@ new class extends Component
 
         $oldModel = $this->resolveEditingModel();
 
-        $oldWysiwygIds = $this->extractWysiwygMediaIds($oldModel->description, $oldModel->content, $oldModel->product_information);
+        $oldWysiwygIds = $this->extractWysiwygMediaIds($oldModel->description, $oldModel->content);
 
         return [$oldModel, $oldWysiwygIds];
     }
 
     protected function translatableFields(): array
     {
-        return ['name', 'title', 'subtitle', 'slug', 'excerpt', 'description', 'content', 'product_information'];
+        return ['name', 'title', 'subtitle', 'slug', 'excerpt', 'description', 'content'];
     }
 
     protected function mainLocale(): string
@@ -1686,13 +1600,12 @@ new class extends Component
 
         $oldModel->description = '';
         $oldModel->content = '';
-        $oldModel->product_information = '';
         $oldModel->delete();
     }
 
     protected function wysiwygFieldValues(): array
     {
-        return [$this->description, $this->content, $this->product_information];
+        return [$this->description, $this->content];
     }
 
     protected function resolveEditingModel(): Product|MasterProduct
@@ -1728,23 +1641,7 @@ new class extends Component
         }
     }
 
-    public function updatedWarrantyAvailable(bool $value): void
-    {
-        if (! $value) {
-            $this->warranty_group_id = null;
-        }
-    }
 
-    #[Computed]
-    public function warrantyGroups()
-    {
-        return WarrantyGroup::query()
-            ->where('is_active', true)
-            ->when($this->warranty_group_search, fn ($query) => $query->where('name', 'like', '%'.$this->warranty_group_search.'%'))
-            ->orderBy('name')
-            ->limit(20)
-            ->get();
-    }
 };
 ?>
 
@@ -1888,64 +1785,16 @@ new class extends Component
                 <flux:card class="space-y-6">
                     <div>
                         <flux:heading size="lg">{{ __('Product Details') }}</flux:heading>
-                        <flux:subheading>
-                            {{ __('Template, materials and manufacturing details.') }}
-                        </flux:subheading>
                     </div>
 
-                    <div class="flex flex-col md:flex-row gap-6">
-                        <div class="flex-1">
-                            <flux:select wire:model.live="product_template" label="{{ __('Product Template') }}">
-                                @foreach (config('products.product_template', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-                        <div class="flex-1">
-                            <flux:input wire:model="make" label="{{ __('Make') }}"
-                                placeholder="{{ __('Product make...') }}" />
-                        </div>
+                    <div class="max-w-md">
+                        <flux:select wire:model="brand" label="{{ __('Brand') }}">
+                            <option value="">{{ __('Select Brand') }}</option>
+                            @foreach (config('products.brand', []) as $val => $label)
+                                <option value="{{ $val }}">{{ __($label) }}</option>
+                            @endforeach
+                        </flux:select>
                     </div>
-
-                    <x-wysiwyg-editor wire:model="product_information" :defer-delete="$editMode"
-                        label="{{ __('Product Information') }}"
-                        placeholder="{{ __('Detailed product information...') }}" />
-
-                    @if ($product_template === 'label')
-                        <div class="flex flex-col md:flex-row gap-6">
-                            <div class="flex-1">
-                                <flux:select wire:model="finishing" label="{{ __('Finishing') }}">
-                                    <option value="">{{ __('Select Finishing') }}</option>
-                                    @foreach (config('products.finishing', []) as $val => $label)
-                                        <option value="{{ $val }}">{{ __($label) }}</option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                            <div class="flex-1">
-                                <flux:select wire:model="glue" label="{{ __('Glue') }}">
-                                    <option value="">{{ __('Select Glue') }}</option>
-                                    @foreach (config('products.glue', []) as $val => $label)
-                                        <option value="{{ $val }}">{{ __($label) }}</option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col md:flex-row gap-6">
-                            <div class="flex-1">
-                                <flux:input wire:model="material_information" label="{{ __('Material Information') }}"
-                                    placeholder="{{ __('Material details...') }}" />
-                            </div>
-                            <div class="flex-1">
-                                <flux:select wire:model="brand" label="{{ __('Brand') }}">
-                                    <option value="">{{ __('Select Brand') }}</option>
-                                    @foreach (config('products.brand', []) as $val => $label)
-                                        <option value="{{ $val }}">{{ __($label) }}</option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-                        </div>
-                    @endif
                 </flux:card>
 
                 <!-- Stock & Delivery -->
@@ -1956,156 +1805,40 @@ new class extends Component
                         </flux:subheading>
                     </div>
 
-                    @if ($product_template === 'label')
-                        <div class="flex flex-col md:flex-row gap-6">
-                            @if ($product_type === 'simple')
-                                <div class="flex-1">
-                                    <flux:input wire:model="stock" label="{{ __('Stock') }}" type="number" min="0" step="1"
-                                        placeholder="{{ __('0') }}" />
-                                </div>
-                            @endif
+                    <div class="flex flex-col md:flex-row gap-6">
+                        @if ($product_type === 'simple')
                             <div class="flex-1">
-                                <flux:input wire:model="jeritech_stock" label="{{ __('Jeritech Stock') }}" type="number"
-                                    min="0" step="1" placeholder="{{ __('0') }}" />
-                            </div>
-                            <div class="flex-1">
-                                <flux:input wire:model="delivery_dates_no_stock"
-                                    label="{{ __('Delivery Days (No Stock)') }}" type="number" min="0" step="1"
+                                <flux:input wire:model="stock" label="{{ __('Stock') }}" type="number" min="0" step="1"
                                     placeholder="{{ __('0') }}" />
                             </div>
+                        @endif
+                        <div class="flex-1">
+                            <flux:input wire:model="delivery_dates_no_stock"
+                                label="{{ __('Delivery Days (No Stock)') }}" type="number" min="0" step="1"
+                                placeholder="{{ __('0') }}" />
                         </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <flux:input wire:model="delivery_dates_in_stock" label="{{ __('Delivery Days (In Stock)') }}"
-                                type="number" min="0" step="1" placeholder="{{ __('0') }}" />
-                            <flux:input wire:model="packing_group" label="{{ __('Packing Group') }}" type="number" min="0"
-                                step="1" placeholder="{{ __('0') }}" />
-
-                            <div class="h-2"></div>
-                            <flux:field variant="inline">
-                                <flux:checkbox wire:model="allow_singulars" />
-                                <flux:label>{{__('Allow singular quantities until the Packing Group')}}</flux:label>
-                                <flux:error name="allow_singulars" />
-                            </flux:field>
-
-
-                            <flux:input wire:model="packaging_unit" label="{{ __('Packaging Unit') }}" type="number" min="0"
-                                step="1" placeholder="{{ __('0') }}" />
+                        <div class="flex-1">
+                            <flux:input wire:model="delivery_dates_in_stock"
+                                label="{{ __('Delivery Days (In Stock)') }}" type="number" min="0" step="1"
+                                placeholder="{{ __('0') }}" />
                         </div>
-                    @else
-                        <div class="flex flex-col md:flex-row gap-6">
-                            @if ($product_type === 'simple')
-                                <div class="flex-1">
-                                    <flux:input wire:model="stock" label="{{ __('Stock') }}" type="number" min="0" step="1"
-                                        placeholder="{{ __('0') }}" />
-                                </div>
-                            @endif
-                            <div class="flex-1">
-                                <flux:input wire:model="delivery_dates_no_stock"
-                                    label="{{ __('Delivery Days (No Stock)') }}" type="number" min="0" step="1"
-                                    placeholder="{{ __('0') }}" />
-                            </div>
-                            <div class="flex-1">
-                                <flux:input wire:model="delivery_dates_in_stock"
-                                    label="{{ __('Delivery Days (In Stock)') }}" type="number" min="0" step="1"
-                                    placeholder="{{ __('0') }}" />
-                            </div>
-                            <div class="flex-1">
-                                <flux:input wire:model="packing_group" label="{{ __('Packing Group') }}" type="number"
-                                    min="0" step="1" placeholder="{{ __('0') }}" />
+                    </div>
 
-                                <div class="h-2"></div>
-                                <flux:field variant="inline">
-                                    <flux:checkbox wire:model="allow_singulars" />
-                                    <flux:label>{{__('Allow singular quantities until the Packing Group')}}</flux:label>
-                                    <flux:error name="allow_singulars" />
-                                </flux:field>
-                            </div>
-                        </div>
-                    @endif
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <flux:input wire:model="packing_group" label="{{ __('Packing Group') }}" type="number" min="0"
+                            step="1" placeholder="{{ __('0') }}" />
+
+                        <div class="h-2"></div>
+                        <flux:field variant="inline">
+                            <flux:checkbox wire:model="allow_singulars" />
+                            <flux:label>{{__('Allow singular quantities until the Packing Group')}}</flux:label>
+                            <flux:error name="allow_singulars" />
+                        </flux:field>
+
+                        <flux:input wire:model="packaging_unit" label="{{ __('Packaging Unit') }}" type="number" min="0"
+                            step="1" placeholder="{{ __('0') }}" />
+                    </div>
                 </flux:card>
-
-                <!-- Technical Specifications -->
-                @if ($product_template === 'label')
-                    <flux:card class="space-y-6">
-                        <div>
-                            <flux:heading size="lg">{{ __('Technical Specifications') }}</flux:heading>
-                            <flux:subheading>{{ __('Label specifications and technical properties.') }}
-                            </flux:subheading>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <flux:select wire:model="material_code" label="{{ __('Material Code') }}">
-                                <option value="">{{ __('Select Material Code') }}</option>
-                                @foreach (config('products.material_code', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-
-
-
-                            <flux:select wire:model="druktype" label="{{ __('Druktype') }}">
-                                <option value="">{{ __('Select Druktype') }}</option>
-                                @foreach (config('products.druktype', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <flux:select wire:model="printer_type" label="{{ __('Printer Type') }}">
-                                <option value="">{{ __('Select Printer Type') }}</option>
-                                @foreach (config('products.printer_type', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-
-                            <flux:select wire:model="meta_width" label="{{ __('Width') }}">
-                                <option value="">{{ __('Select Width') }}</option>
-                                @foreach (config('products.meta_width', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-
-                            <flux:select wire:model="meta_height" label="{{ __('Height') }}">
-                                <option value="">{{ __('Select Height') }}</option>
-                                @foreach (config('products.meta_height', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <flux:select wire:model="kern" label="{{ __('Kern') }}">
-                                <option value="">{{ __('Select Kern') }}</option>
-                                @foreach (config('products.kern', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-
-                            <flux:select wire:model="buitendia" label="{{ __('Buitendia') }}">
-                                <option value="">{{ __('Select Buitendia') }}</option>
-                                @foreach (config('products.buitendia', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-
-                            <flux:select wire:model="detectie" label="{{ __('Detectie') }}">
-                                <option value="">{{ __('Select Detectie') }}</option>
-                                @foreach (config('products.detectie', []) as $val => $label)
-                                    <option value="{{ $val }}">{{ __($label) }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-
-                        <flux:select wire:model.live="merken" label="{{ __('Merken') }}">
-                            <option value="">{{ __('Select Merken') }}</option>
-                            @foreach (config('products.merken', []) as $val => $label)
-                                <option value="{{ $val }}">{{ __($label) }}</option>
-                            @endforeach
-                        </flux:select>
-                    </flux:card>
-                @endif
 
                 <!-- Pricing & Inventory -->
                 @if ($product_type === 'simple')
@@ -2367,27 +2100,7 @@ new class extends Component
                     </flux:card>
                 @endif
 
-                <flux:card class="space-y-6">
-                    <div>
-                        <flux:heading size="lg">{{ __('Technical Details') }}</flux:heading>
-                        <flux:subheading>{{ __('Specific technical properties for this product.') }}</flux:subheading>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        @foreach ($all_properties as $index => $property)
-                            <flux:pillbox size="sm" variant="combobox" multiple
-                                placeholder="{{ __('Select :property', ['property' => __($property->name)]) }}"
-                                wire:model="product_properties.{{ $property->id }}" label="{{ __($property->name) }}">
-                                @forelse($property['propertyValues'] as $value)
-                                    <flux:pillbox.option value="{{ $value->value }}" wire:key="property-value-{{ $value->id }}">
-                                        {{ __($value->title ?: $value->value) }}
-                                    </flux:pillbox.option>
-                                @empty
-                                    <flux:pillbox.option value="" disabled>{{ __('No values') }}</flux:pillbox.option>
-                                @endforelse
-                            </flux:pillbox>
-                        @endforeach
-                    </div>
-                </flux:card>
+
 
 
 
@@ -2434,56 +2147,9 @@ new class extends Component
                         <flux:error name="cross_sell_ids.*" />
                     </div>
 
-                    <div class="space-y-2">
-                        <flux:select wire:model="suitable_printer_ids" label="{{ __('Suitable Printers') }}"
-                            placeholder="{{ __('Search and select suitable printers...') }}" variant="listbox"
-                            multiple searchable clearable indicator="checkbox" selected-suffix="{{ __('selected') }}">
-                            @foreach ($this->relatableProducts as $option)
-                                <flux:select.option value="{{ $option['id'] }}" wire:key="sp-{{ $option['id'] }}">
-                                    {{ $option['label'] }}
-                                </flux:select.option>
-                            @endforeach
-                        </flux:select>
-                        <flux:text size="sm" class="text-zinc-500">
-                            {{ __('Printers this product fits. Shown as "Suitable printers" on ink and label pages.') }}
-                        </flux:text>
-                        <flux:error name="suitable_printer_ids" />
-                        <flux:error name="suitable_printer_ids.*" />
-                    </div>
                 </flux:card>
 
-                <!-- Warranty Group -->
-                @if ($product_type === 'simple')
-                    <flux:card class="space-y-6">
-                        <div>
-                            <flux:heading size="lg">{{ __('Warranty') }}</flux:heading>
-                            <flux:subheading>{{ __('Assign a reusable warranty group to this product.') }}
-                            </flux:subheading>
-                        </div>
 
-                        <div class="space-y-4">
-                            <flux:checkbox wire:model.live="warrantyAvailable">
-                                {{ __('Warranty available') }}
-                            </flux:checkbox>
-
-                            @if ($warrantyAvailable)
-                                <flux:select wire:model="warranty_group_id" variant="combobox" :filter="false">
-                                    <x-slot name="input">
-                                        <flux:select.input wire:model.live="warranty_group_search"
-                                            label="{{ __('Warranty Group') }}" />
-                                    </x-slot>
-                                    @foreach ($this->warrantyGroups as $warrantyGroup)
-                                        <flux:select.option value="{{ $warrantyGroup->id }}"
-                                            wire:key="warranty-group-{{ $warrantyGroup->id }}">
-                                            {{ __($warrantyGroup->name) }}
-                                        </flux:select.option>
-                                    @endforeach
-                                </flux:select>
-                                <flux:error name="warranty_group_id" />
-                            @endif
-                        </div>
-                    </flux:card>
-                @endif
 
                 <!-- Shipping / Dimensions -->
                 <flux:card class="space-y-6">

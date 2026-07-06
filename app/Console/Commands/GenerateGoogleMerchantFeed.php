@@ -187,9 +187,12 @@ class GenerateGoogleMerchantFeed extends Command
 
     private function brand(Product $product): string
     {
-        return filled($product->make)
-            ? (string) $product->make
-            : (string) config('products.merchant_feed.brand');
+        $brandProperty = $product->propertyValues->first(fn ($val) => in_array($val->property->slug, ['brand', 'merk', 'product-brand', 'product_brand']));
+        if ($brandProperty) {
+            return (string) $brandProperty->title;
+        }
+
+        return (string) config('products.merchant_feed.brand');
     }
 
     private function productUrl(Product $product): string
