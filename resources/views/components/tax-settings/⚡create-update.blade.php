@@ -182,11 +182,18 @@ new class extends Component {
         ];
 
         if ($this->editingCategoryId) {
-            TaxCategory::findOrFail($this->editingCategoryId)->update($data);
+            $category = TaxCategory::findOrFail($this->editingCategoryId);
+            $category->update($data);
             Flux::toast(__('Tax category updated.'), variant: 'success');
         } else {
-            TaxCategory::create($data);
+            $category = TaxCategory::create($data);
             Flux::toast(__('Tax category created.'), variant: 'success');
+        }
+
+        unset($this->categories, $this->activeCategories);
+
+        if ($category->is_active) {
+            $this->rateTaxCategoryId = (string) $category->id;
         }
 
         $this->openCreateCategory();
@@ -254,8 +261,12 @@ new class extends Component {
                     <flux:input wire:model="rateName" label="{{ __('Name') }}"
                         placeholder="{{ __('e.g. German VAT 19%') }}" />
 
-                    <div class="grid grid-cols-2 gap-4 items-start">
-                        <flux:select wire:model="rateTaxCategoryId" label="{{ __('Tax Category') }}">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <flux:select
+                            wire:model="rateTaxCategoryId"
+                            wire:key="rate-tax-category-{{ $this->activeCategories->pluck('id')->join('-') }}"
+                            label="{{ __('Tax Category') }}"
+                        >
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach($this->activeCategories as $cat)
                                 <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -269,6 +280,12 @@ new class extends Component {
                             @endforeach
                         </flux:select>
                     </div>
+
+                    @if($this->activeCategories->isEmpty())
+                        <flux:text class="-mt-4 text-sm text-zinc-500">
+                            {{ __('Add an active category in the Tax Categories panel first.') }}
+                        </flux:text>
+                    @endif
 
                     <div class="grid grid-cols-2 gap-4 items-start">
                         <flux:input wire:model="rateValue" type="number" step="0.01" min="0" max="100"

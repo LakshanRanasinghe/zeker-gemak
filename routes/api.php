@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\ShippingController;
+use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
@@ -115,6 +116,8 @@ Route::post('/recycle-request', [ContactsController::class, 'recycleRequest'])->
 
 Route::get('/availabilities', [AvailabilityController::class, 'index'])->name('availabilities.index');
 Route::get('/shipping-methods', [ShippingController::class, 'index'])->name('shipping-methods.index');
+Route::get('/tax-categories', [TaxController::class, 'categories'])->name('tax-categories.index');
+Route::get('/tax-rates', [TaxController::class, 'index'])->name('tax-rates.index');
 Route::get('/team-members', [TeamMemberController::class, 'index'])->name('team-members.index');
 Route::get('/popular-products', [PopularProductController::class, 'index'])->name('popular-products.index');
 

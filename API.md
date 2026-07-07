@@ -436,6 +436,85 @@ const payload = await response.json();
   GET /api/shipping-methods?active_only=0
   ```
 
+## Taxes
+
+### List Tax Categories
+* **Endpoint:** `GET /api/tax-categories`
+* **Description:** Returns tax category options for checkout/admin frontend select fields. By default, only active categories are returned.
+* **Query Parameters:**
+  * `active_only`: Optional boolean. Defaults to `true`. Use `0` or `false` to include inactive categories.
+* **Response (200 OK):**
+  ```json
+  {
+    "data": [
+      {
+        "id": 4,
+        "name": "Physical Goods",
+        "type": "physical_goods",
+        "label": "Physical Goods",
+        "is_active": true
+      }
+    ]
+  }
+  ```
+* **Examples:**
+  ```http
+  GET /api/tax-categories
+  GET /api/tax-categories?active_only=0
+  ```
+
+### List Tax Rates
+* **Endpoint:** `GET /api/tax-rates`
+* **Description:** Returns tax rates for checkout. By default, only active and currently valid tax rates are returned, and rates attached to inactive tax categories are excluded.
+* **Query Parameters:**
+  * `active_only`: Optional boolean. Defaults to `true`. Use `0` or `false` to include inactive rates and rates assigned to inactive tax categories.
+  * `current_only`: Optional boolean. Defaults to `true`. Use `0` or `false` to include future or expired rates.
+  * `zone_id`: Optional zone ID. When provided, returns rates assigned to that zone plus global rates with no zone.
+  * `tax_category_id`: Optional tax category ID. Filters rates for a specific product tax category.
+* **Response (200 OK):**
+  ```json
+  {
+    "data": [
+      {
+        "id": 1,
+        "name": "NL VAT 21%",
+        "tax_category_id": 4,
+        "tax_category": {
+          "id": 4,
+          "name": "Physical Goods",
+          "type": "physical_goods",
+          "is_active": true
+        },
+        "zone_id": 2,
+        "zone": {
+          "id": 2,
+          "name": "Netherlands",
+          "scope": "shipping"
+        },
+        "rate": 21,
+        "calculator": "default",
+        "is_active": true,
+        "valid_from": "2026-01-01",
+        "valid_until": null,
+        "configuration": {
+          "title": "VAT",
+          "rate": 21,
+          "included": false
+        },
+        "title": "VAT",
+        "included": false
+      }
+    ]
+  }
+  ```
+* **Examples:**
+  ```http
+  GET /api/tax-rates
+  GET /api/tax-rates?zone_id=2
+  GET /api/tax-rates?tax_category_id=4
+  GET /api/tax-rates?active_only=0&current_only=0
+  ```
+
 
 ## Order Placement & Checkout
 
