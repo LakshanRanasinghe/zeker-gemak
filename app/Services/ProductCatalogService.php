@@ -478,7 +478,7 @@ class ProductCatalogService
         $categoryLocale = $this->categoryFilterLocale($filters);
 
         if ($categoryPaths = $this->normalizeStringValues($filters['category_path'] ?? $filters['category_paths'] ?? null)) {
-            $clauses[] = ['terms' => ["category_paths_{$categoryLocale}" => $categoryPaths]];
+            $clauses[] = ['terms' => ["category_paths_{$categoryLocale}.keyword" => $categoryPaths]];
         }
 
         if ($categorySlugs = $this->normalizeStringValues($filters['category'] ?? $filters['category_slug'] ?? null)) {
@@ -494,8 +494,8 @@ class ProductCatalogService
             }
 
             $categorySlugClauses = array_filter([
-                $slugValues !== [] ? ['terms' => ["category_slugs_{$categoryLocale}" => $slugValues]] : null,
-                $pathValues !== [] ? ['terms' => ["category_paths_{$categoryLocale}" => $pathValues]] : null,
+                $slugValues !== [] ? ['terms' => ["category_slugs_{$categoryLocale}.keyword" => $slugValues]] : null,
+                $pathValues !== [] ? ['terms' => ["category_paths_{$categoryLocale}.keyword" => $pathValues]] : null,
             ]);
 
             if (count($categorySlugClauses) === 1) {

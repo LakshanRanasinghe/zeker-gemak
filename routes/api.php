@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\PopularProductController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
@@ -113,6 +114,7 @@ Route::post('/request-printer', [ContactsController::class, 'requestPrinter'])->
 Route::post('/recycle-request', [ContactsController::class, 'recycleRequest'])->name('recycle-request');
 
 Route::get('/availabilities', [AvailabilityController::class, 'index'])->name('availabilities.index');
+Route::get('/shipping-methods', [ShippingController::class, 'index'])->name('shipping-methods.index');
 Route::get('/team-members', [TeamMemberController::class, 'index'])->name('team-members.index');
 Route::get('/popular-products', [PopularProductController::class, 'index'])->name('popular-products.index');
 

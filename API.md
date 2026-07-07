@@ -381,6 +381,61 @@ const payload = await response.json();
 * **Endpoint:** `GET /api/products/{type}/{id}`  
   * *Example:* `GET /api/products/simple/102`
 
+---
+
+## Shipping
+
+### List Shipping Methods
+* **Endpoint:** `GET /api/shipping-methods`
+* **Description:** Returns shipping methods for checkout. By default, only active shipping methods are returned, and methods attached to inactive carriers are excluded.
+* **Query Parameters:**
+  * `active_only`: Optional boolean. Defaults to `true`. Use `0` or `false` to include inactive methods.
+  * `zone_id`: Optional zone ID. When provided, returns methods assigned to that zone plus global methods with no zone.
+* **Response (200 OK):**
+  ```json
+  {
+    "data": [
+      {
+        "id": 1,
+        "name": "Standard Shipping",
+        "carrier": {
+          "id": 3,
+          "name": "PostNL",
+          "is_active": true
+        },
+        "zone": {
+          "id": 2,
+          "name": "Netherlands",
+          "scope": "shipping"
+        },
+        "calculator": "flat_fee",
+        "is_active": true,
+        "eta": {
+          "min": 1,
+          "max": 3,
+          "units": "days"
+        },
+        "configuration": {
+          "title": "Shipping fee",
+          "cost": 7.95,
+          "free_threshold": 100
+        },
+        "cost": 7.95,
+        "title": "Shipping fee",
+        "free_threshold": 100,
+        "discounted_threshold": null,
+        "discounted_cost": null
+      }
+    ]
+  }
+  ```
+* **Examples:**
+  ```http
+  GET /api/shipping-methods
+  GET /api/shipping-methods?zone_id=2
+  GET /api/shipping-methods?active_only=0
+  ```
+
 
 ## Order Placement & Checkout
 
