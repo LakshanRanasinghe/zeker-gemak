@@ -35,6 +35,6 @@ Notes:
 # Once Change any configs on searchables, run this command:
 - php artisan elastic:update
 
-- php artisan scout:import "App\Models\MasterProduct"
+- php artisan scout:import "App\Models\MasterProduct" (not applicable)
 - php artisan scout:import "App\Models\Product"
 - php artisan scout:import "App\Models\GroupProduct"

@@ -170,13 +170,210 @@ All endpoints in this section require `Authorization: Bearer <access_token>`.
 
 ## Products Catalog & Compatibility
 
+### Get Catalog Filters
+* **Endpoint:** `GET /api/filters`
+* **Description:** Returns the filter metadata needed to build the storefront filter UI. Use this endpoint to render category trees, sort options, product type options, price ranges, brands, and product attribute filters.
+* **Query Parameters:**
+  * `lang`: Optional locale string (e.g. `nl` or `en`)
+* **Response (200 OK):**
+  ```json
+  {
+    "data": {
+      "types": [
+        { "value": "simple", "label": "Simple" },
+        { "value": "variable", "label": "Variable" }
+      ],
+      "sort": [
+        { "value": "latest", "label": "Latest" },
+        { "value": "price_asc", "label": "Price Low to High" }
+      ],
+      "categories": [
+        {
+          "id": 1,
+          "name": "Labels",
+          "slug": "labels",
+          "count": 24,
+          "translations": {
+            "nl": { "name": "Etiketten", "slug": "etiketten" },
+            "en": { "name": "Labels", "slug": "labels" }
+          },
+          "categories": [
+            {
+              "id": 12,
+              "name": "Thermal Labels",
+              "slug": "thermal-labels",
+              "count": 8,
+              "children": []
+            }
+          ]
+        }
+      ],
+      "filters": [
+        {
+          "key": "price",
+          "label": "Price",
+          "type": "range",
+          "query": {
+            "min": "price_min",
+            "max": "price_max"
+          },
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "catalog_brand",
+          "label": "Brand",
+          "type": "multi_select",
+          "query": "brand",
+          "options": [
+            { "value": "brother", "label": "Brother", "count": 12 }
+          ]
+        }
+      ],
+      "meta": {
+        "afwerking": [
+          { "value": "mat", "label": "Mat" }
+        ]
+      }
+    }
+  }
+  ```
+
+### List Categories
+* **Endpoint:** `GET /api/categories`
+* **Description:** Returns category groups and nested categories with product counts. Useful for category archive pages and navigation menus.
+* **Query Parameters:**
+  * `lang`: Optional locale string (e.g. `nl` or `en`)
+
+### List Products in a Category
+* **Endpoint:** `GET /api/categories/{slug}/products`
+* **Description:** Returns products assigned to a category slug.
+* **Route Params:**
+  * `slug`: Category slug
+* **Query Parameters:**
+  * `per_page`: Number of products per page
+  * `page`: Pagination page number
+
 ### List/Paginate Products
 * **Endpoint:** `GET /api/products`
+* **Description:** Returns paginated active products from the catalog search index. Use this endpoint for the main storefront listing, search results, category pages, and combined filters.
 * **Query Parameters:**
   * `lang`: String locale (e.g. `nl` or `en`)
   * `search`: Search query string
-  * `category`: Filter by category slug
-  * `page`: Pagination page number
+  * `page`: Pagination page number. Defaults to `1`
+  * `per_page`: Products per page. Defaults to `12`, maximum `100`
+  * `sort`: Sort option. Allowed values: `latest`, `oldest`, `title_asc`, `title_desc`, `price_asc`, `price_desc`
+  * `type`: Product type. Allowed values: `simple`, `variable`, `group`
+  * `product_type`: Alias for `type`
+  * `category`: Filter by category slug. Multiple values may be comma-separated
+  * `category_slug`: Alias for `category`
+  * `category_id`: Filter by category ID. Multiple values may be comma-separated
+  * `category_path`: Filter by nested category path, such as `labels/thermal-labels`
+  * `category_paths`: Alias for `category_path`
+  * `brand`: Filter by product brand. Multiple values may be comma-separated
+  * `catalog_brand`: Alias for `brand`
+  * `price_min`: Minimum product price
+  * `price_max`: Maximum product price
+  * `in_stock`: Stock filter. Use `1`, `true`, `yes`, or `on` for in-stock products; use `0`, `false`, `no`, or `off` for out-of-stock products
+  * `id`: Filter by product ID. Multiple values may be comma-separated
+  * `slug`: Filter by product slug. Multiple values may be comma-separated
+  * `article_number`: Filter by article number. Multiple values may be comma-separated
+  * `afwerking`: Filter by finishing value. Multiple values may be comma-separated
+  * `lijm`: Filter by adhesive value. Multiple values may be comma-separated
+  * `materiaal-code`: Filter by material code. Multiple values may be comma-separated
+  * `printmethode`: Filter by print method. Multiple values may be comma-separated
+  * `breedte`: Filter by exact width option
+  * `breedte_min`: Minimum width
+  * `breedte_max`: Maximum width
+  * `hoogte`: Filter by exact height option
+  * `hoogte_min`: Minimum height
+  * `hoogte_max`: Maximum height
+  * `kern`: Filter by exact core option
+  * `kern_min`: Minimum core size
+  * `kern_max`: Maximum core size
+  * `buiten-diameter`: Filter by exact outer diameter option
+  * `buiten-diameter_min`: Minimum outer diameter
+  * `buiten-diameter_max`: Maximum outer diameter
+  * `detectie`: Filter by detection value. Multiple values may be comma-separated
+  * `merken`: Filter by compatible brand/mark value. Multiple values may be comma-separated
+* **Examples:**
+  ```http
+  GET /api/products?lang=nl&category=etiketten&page=1
+  GET /api/products?lang=nl&search=brother&category=etiketten&sort=price_asc&in_stock=1
+  GET /api/products?brand=brother,dymo&price_min=10&price_max=50
+  GET /api/products?category_path=labels/thermal-labels
+  GET /api/products?breedte_min=50&breedte_max=100&hoogte_min=20
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "data": [
+      {
+        "id": 102,
+        "model_id": 102,
+        "type": "simple",
+        "is_group_product": false,
+        "api_path_by_id": "/api/products/simple/102",
+        "api_path_by_slug": "/api/products/simple/slug/brother-dk-11201",
+        "title": "Brother DK-11201",
+        "slug": "brother-dk-11201",
+        "sku": "DK-11201",
+        "price": 12.95,
+        "stock": 25,
+        "in_stock": true,
+        "main_image": "https://example.com/storage/..."
+      }
+    ],
+    "links": {
+      "first": "https://example.com/api/products?page=1",
+      "last": "https://example.com/api/products?page=4",
+      "prev": null,
+      "next": "https://example.com/api/products?page=2"
+    },
+    "meta": {
+      "current_page": 1,
+      "from": 1,
+      "last_page": 4,
+      "per_page": 12,
+      "to": 12,
+      "total": 48,
+      "in_stock_count": 42
+    }
+  }
+  ```
+
+### Frontend Filter Flow
+* Load `GET /api/filters?lang=nl` to render the filter sidebar/menu.
+* Store selected filter values in the Next.js URL query string.
+* Pass selected filters to `GET /api/products`.
+* Use the `query` field from each `/api/filters` item when building product query parameters.
+* Use comma-separated values for multi-select filters, for example `brand=brother,dymo`.
+* Prefer `GET /api/products?category={slug}` for category product pages when combining category, search, sort, price, and attribute filters.
+
+Example Next.js query builder:
+```ts
+const params = new URLSearchParams();
+
+params.set('lang', locale);
+params.set('page', String(page));
+
+if (search) params.set('search', search);
+if (categorySlug) params.set('category', categorySlug);
+if (sort) params.set('sort', sort);
+if (inStock) params.set('in_stock', '1');
+if (brands.length) params.set('brand', brands.join(','));
+if (priceMin) params.set('price_min', String(priceMin));
+if (priceMax) params.set('price_max', String(priceMax));
+
+const response = await fetch(`${apiUrl}/api/products?${params.toString()}`);
+const payload = await response.json();
+```
+
+### Search Products
+* **Endpoint:** `GET /api/search`
+* **Description:** Lightweight product search endpoint. Returns up to 15 matching simple products and up to 15 matching group products.
+* **Query Parameters:**
+  * `query`: Required search query string, maximum 500 characters
 
 ### Get Single Product
 * **Endpoint:** `GET /api/products/{type}/slug/{slug}`  

@@ -8,6 +8,7 @@ use App\Models\MasterProduct;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\ProductRelation;
+use App\Models\Taxon;
 use App\Models\WarrantyGroup;
 use App\Services\ProductContentGenerator;
 use App\Services\SkuGenerator;
@@ -105,6 +106,8 @@ new class extends Component
 
     public array $selected_taxons = [];
 
+    public array $selected_brand_taxons = [];
+
 
     // Edit mode
     public ?int $productId = null;
@@ -112,11 +115,6 @@ new class extends Component
     public bool $editMode = false;
 
     public string $originalProductType = 'simple';
-
-    // Meta fields
-    public string $brand = '';
-
-
 
     public ?string $tax_category_id = null;
 
@@ -208,13 +206,13 @@ new class extends Component
         $id = trim($id);
 
         if ($type === 'variable') {
-            $model = MasterProduct::with(['variants.propertyValues.property', 'propertyValues.property', 'metas', 'taxons'])->findOrFail($id);
+            $model = MasterProduct::with(['variants.propertyValues.property', 'propertyValues.property', 'metas', 'taxons.taxonomy'])->findOrFail($id);
 
             return [$model, 'variable'];
         }
 
         if ($type === 'simple') {
-            $model = Product::with(['propertyValues.property', 'metas', 'taxons'])->findOrFail($id);
+            $model = Product::with(['propertyValues.property', 'metas', 'taxons.taxonomy'])->findOrFail($id);
 
             return [$model, 'simple'];
         }
@@ -361,7 +359,14 @@ new class extends Component
                 ->all();
         }
 
-        $this->selected_taxons = $model->taxons->pluck('id')->toArray();
+        $this->selected_taxons = $model->taxons
+            ->filter(fn ($taxon) => $this->taxonBelongsTo($taxon, 'Category'))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $this->selected_brand_taxons = $this->selectedBrandTaxonIdsForModel($model);
 
         if ($type === 'variable') {
             $this->populateAttributesAndVariations($model);
@@ -455,8 +460,8 @@ new class extends Component
             'gallery_images.*' => 'image|max:10240',
             'selected_taxons' => 'nullable|array',
             'selected_taxons.*' => 'exists:taxons,id',
-            // Meta fields
-            'brand' => 'nullable|string|max:255',
+            'selected_brand_taxons' => 'nullable|array',
+            'selected_brand_taxons.*' => 'exists:taxons,id',
 
             'tax_category_id' => 'nullable|exists:tax_categories,id',
             'discount_group_id' => 'nullable|integer|in:0,'.implode(',', DB::table('discount_groups')->pluck('id')->toArray()),
@@ -793,7 +798,7 @@ new class extends Component
 
         return [
             'title' => $title,
-            'brand' => (string) $this->brand,
+            'brand' => $this->selectedBrandNamesForContext(),
             'category' => $category,
             'attributes' => $attributes,
         ];
@@ -1101,6 +1106,8 @@ new class extends Component
 
         $this->syncProductProperties($productToAttachMedia);
 
+        $this->syncProductBrandProperties($productToAttachMedia);
+
 
 
         $productToAttachMedia->searchable();
@@ -1169,6 +1176,133 @@ new class extends Component
         if ($selectedPropertyValueIds !== []) {
             $product->propertyValues()->syncWithoutDetaching(array_values(array_unique($selectedPropertyValueIds)));
         }
+    }
+
+    protected function syncProductBrandProperties(Product|MasterProduct $product): void
+    {
+        $brandProperty = Property::query()->firstOrCreate(
+            ['slug' => 'brand'],
+            ['name' => 'Brand', 'type' => 'text']
+        );
+
+        $brandPropertyIds = Property::query()
+            ->whereIn('slug', $this->brandPropertySlugs())
+            ->pluck('id')
+            ->all();
+
+        $product->propertyValues()->detach(
+            PropertyValue::query()
+                ->whereIn('property_id', $brandPropertyIds)
+                ->pluck('id')
+                ->all()
+        );
+
+        $brandTaxons = $this->selectedBrandTaxons();
+
+        if ($brandTaxons->isEmpty()) {
+            return;
+        }
+
+        $propertyValueIds = $brandTaxons
+            ->map(fn (Taxon $taxon): int => PropertyValue::query()->firstOrCreate(
+                [
+                    'property_id' => $brandProperty->id,
+                    'value' => (string) $taxon->slug,
+                ],
+                ['title' => (string) $taxon->name]
+            )->id)
+            ->values()
+            ->all();
+
+        $product->propertyValues()->syncWithoutDetaching($propertyValueIds);
+    }
+
+    protected function selectedBrandTaxons(): Collection
+    {
+        $ids = collect($this->selected_brand_taxons)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return new Collection;
+        }
+
+        return Taxon::query()
+            ->whereIn('id', $ids)
+            ->whereHas('taxonomy', fn ($query) => $query->where('name', 'Brands'))
+            ->orderBy('name')
+            ->get();
+    }
+
+    protected function selectedBrandNamesForContext(): string
+    {
+        return $this->selectedBrandTaxons()
+            ->pluck('name')
+            ->filter()
+            ->implode(', ');
+    }
+
+    protected function selectedBrandTaxonIdsForModel(Product|MasterProduct $model): array
+    {
+        $assignedIds = $model->taxons
+            ->filter(fn ($taxon) => $this->taxonBelongsTo($taxon, 'Brands'))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $brandValues = $model->propertyValues
+            ->filter(fn ($propertyValue) => $propertyValue->property && in_array((string) $propertyValue->property->slug, $this->brandPropertySlugs(), true))
+            ->flatMap(fn ($propertyValue) => [(string) $propertyValue->value, (string) $propertyValue->title])
+            ->merge(
+                $model->metas
+                    ->where('meta_key', 'brand')
+                    ->pluck('meta_value')
+                    ->map(fn ($value) => (string) $value)
+            )
+            ->map(fn (string $value) => trim($value))
+            ->filter()
+            ->unique(fn (string $value) => Str::lower($value))
+            ->values();
+
+        if ($brandValues->isEmpty()) {
+            return $assignedIds->unique()->values()->all();
+        }
+
+        $brandLookup = $brandValues
+            ->flatMap(fn (string $value) => [
+                Str::lower($value),
+                Str::lower(Str::slug($value)),
+            ])
+            ->unique()
+            ->all();
+
+        $propertyMatchedIds = Taxon::query()
+            ->whereHas('taxonomy', fn ($query) => $query->where('name', 'Brands'))
+            ->get(['id', 'name', 'slug', 'taxonomy_id'])
+            ->filter(fn (Taxon $taxon) => in_array(Str::lower((string) $taxon->slug), $brandLookup, true)
+                || in_array(Str::lower((string) $taxon->name), $brandLookup, true))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
+
+        return $assignedIds
+            ->merge($propertyMatchedIds)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function taxonBelongsTo($taxon, string $taxonomyName): bool
+    {
+        $taxonomy = $taxon->relationLoaded('taxonomy') ? $taxon->taxonomy : $taxon->taxonomy()->first();
+
+        return $taxonomy && (string) $taxonomy->name === $taxonomyName;
+    }
+
+    protected function brandPropertySlugs(): array
+    {
+        return ['brand', 'merk', 'product-brand', 'product_brand'];
     }
 
     protected function normalizeSelectedPropertyValues(mixed $values): array
@@ -1781,22 +1915,6 @@ new class extends Component
                         placeholder="{{ __('Detailed product content...') }}" />
                 </flux:card>
 
-                <!-- Product Details -->
-                <flux:card class="space-y-6">
-                    <div>
-                        <flux:heading size="lg">{{ __('Product Details') }}</flux:heading>
-                    </div>
-
-                    <div class="max-w-md">
-                        <flux:select wire:model="brand" label="{{ __('Brand') }}">
-                            <option value="">{{ __('Select Brand') }}</option>
-                            @foreach (config('products.brand', []) as $val => $label)
-                                <option value="{{ $val }}">{{ __($label) }}</option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                </flux:card>
-
                 <!-- Stock & Delivery -->
                 <flux:card class="space-y-6">
                     <div>
@@ -2224,6 +2342,20 @@ new class extends Component
                     </div>
 
                     <livewire:category-tree taxonomy-name="Category" wire:model="selected_taxons" />
+                </flux:card>
+
+                <!-- Brand Assignment -->
+                <flux:card class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('Brands') }}</flux:heading>
+                        <flux:subheading>{{ __('Assign product brands from the Brands taxonomy.') }}</flux:subheading>
+                    </div>
+
+                    <livewire:category-tree taxonomy-name="Brands" item-name="Brand" item-name-plural="brands"
+                        wire:model="selected_brand_taxons" />
+
+                    <flux:error name="selected_brand_taxons" />
+                    <flux:error name="selected_brand_taxons.*" />
                 </flux:card>
 
                 <!-- SEO Metadata -->
