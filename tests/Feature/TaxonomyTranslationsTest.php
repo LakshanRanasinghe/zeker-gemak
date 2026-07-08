@@ -224,6 +224,24 @@ it('loads existing taxons with per-locale data populated from base columns and t
         ->and($row['data']['en']['meta_description'])->toBe('Adidas brand EN');
 });
 
+it('shows a pending image preview while editing a saved taxon', function (): void {
+    $taxonomy = Taxonomy::create(['name' => 'Merken', 'slug' => 'merken']);
+    $filename = '60aebd7bc2a829095189279e7bffd914eb257a92.png';
+
+    $taxon = Taxon::create([
+        'taxonomy_id' => $taxonomy->id,
+        'name' => 'Adidas',
+        'priority' => 1,
+    ]);
+
+    Livewire::test('taxonomies.create-update', ['taxonomy' => $taxonomy])
+        ->call('editTaxon', $taxon->id)
+        ->set('main_image', UploadedFile::fake()->image($filename))
+        ->assertSee($filename)
+        ->assertSee('Preview of the image ready to save.')
+        ->assertSee('wrap-anywhere', false);
+});
+
 it('saves new taxons with main-locale base values and translation rows for other locales', function (): void {
     Livewire::test('taxonomies.create-update')
         ->set('taxonomyData.nl.name', 'Merken')
@@ -320,7 +338,11 @@ it('saves a main image for the selected existing taxon', function (): void {
         ->call('editTaxon', $taxon->id)
         ->set('main_image', UploadedFile::fake()->image('category.jpg'))
         ->call('save')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertSet('main_image', null)
+        ->assertSet('editingTaxonId', (string) $taxon->id)
+        ->assertSee('category.jpg')
+        ->assertSee('Current saved image.');
 
     $lastProductPayload = collect($indexedPayloads)
         ->where('key', 'product_'.$product->id)

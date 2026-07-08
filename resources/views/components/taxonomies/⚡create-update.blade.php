@@ -165,6 +165,7 @@ new class extends Component
     public function save()
     {
         $main = $this->mainLocale();
+        $shouldStayOnEditor = $this->editingTaxonId !== null;
 
         if (empty($this->taxonomyData[$main]['slug'])) {
             $this->taxonomyData[$main]['slug'] = Str::slug($this->taxonomyData[$main]['name'] ?? '');
@@ -189,12 +190,23 @@ new class extends Component
 
             $this->syncTaxons($taxonomy);
             $this->uploadEditingTaxonMedia();
+
+            $this->taxonomy = $taxonomy->fresh();
         });
+
+        if ($shouldStayOnEditor && $this->taxonomy?->exists) {
+            $this->loadTaxons();
+            unset($this->existingTaxonMainMedia);
+        }
 
         Flux::toast(
             __($wasCreated ? 'Taxonomy created successfully.' : 'Taxonomy updated successfully.'),
             variant: 'success'
         );
+
+        if ($shouldStayOnEditor) {
+            return null;
+        }
 
         return redirect()->route('taxonomies.index');
     }
@@ -567,8 +579,8 @@ new class extends Component
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-2 space-y-6">
+        <div class="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-3">
+            <div class="min-w-0 space-y-6 md:col-span-2">
                 <!-- General Information -->
                 <flux:card class="space-y-6 md:max-h-[calc(100vh-14rem)] md:overflow-y-auto md:pr-2">
                     <div>
@@ -617,9 +629,9 @@ new class extends Component
                         @endunless
                     </div>
 
-                    <div x-data="taxonSortable()" x-init="initSortable($el)">
+                    <div class="min-w-0" x-data="taxonSortable()" x-init="initSortable($el)">
                         <ul
-                            class="nested-sortable space-y-2 min-h-[50px] p-2 border border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50">
+                            class="nested-sortable min-w-0 space-y-2 min-h-[50px] p-2 border border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50">
                             @foreach($this->taxonsTree as $node)
                                 @include('components.taxonomies.⚡taxon-node', ['node' => $node, 'selectedLocale' => $selectedLocale])
                             @endforeach
@@ -699,7 +711,7 @@ new class extends Component
                 </flux:card>
             </div>
 
-            <div class="space-y-6 sticky top-6 self-start md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:pr-2">
+            <div class="min-w-0 space-y-6 sticky top-6 self-start md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:pr-2">
                 <!-- Help -->
                 {{-- <flux:card class="space-y-6">
                     <div>
@@ -772,20 +784,29 @@ new class extends Component
 
                                         @php
                                             $existingMainMedia = $this->existingTaxonMainMedia->first();
+                                            $pendingMainImageUrl = null;
+                                            $pendingMainImageName = null;
+
+                                            if (is_object($main_image) && method_exists($main_image, 'temporaryUrl')) {
+                                                $pendingMainImageUrl = $main_image->temporaryUrl();
+                                                $pendingMainImageName = method_exists($main_image, 'getClientOriginalName')
+                                                    ? $main_image->getClientOriginalName()
+                                                    : __('Selected image');
+                                            }
                                         @endphp
 
                                         <div class="space-y-3">
-                                            @if ($main_image)
-                                                <div class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/5">
+                                            @if ($pendingMainImageUrl)
+                                                <div class="flex min-w-0 items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/5">
                                                     <img
-                                                        src="{{ $main_image->temporaryUrl() }}"
+                                                        src="{{ $pendingMainImageUrl }}"
                                                         alt="{{ __('Selected category image preview') }}"
                                                         class="size-20 shrink-0 rounded-md object-cover" />
 
-                                                    <div class="min-w-0 flex-1">
-                                                        <flux:text class="truncate text-sm font-medium">
-                                                            {{ $main_image->getClientOriginalName() }}
-                                                        </flux:text>
+                                                    <div class="min-w-0 flex-1 wrap-anywhere">
+                                                        <p class="text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">
+                                                            {{ $pendingMainImageName }}
+                                                        </p>
                                                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
                                                             {{ __('Preview of the image ready to save.') }}
                                                         </flux:text>
@@ -796,20 +817,21 @@ new class extends Component
                                                         size="sm"
                                                         variant="ghost"
                                                         icon="x-mark"
+                                                        class="shrink-0"
                                                         wire:click="clearPendingTaxonImage"
                                                         aria-label="{{ __('Remove selected image') }}" />
                                                 </div>
                                             @elseif ($existingMainMedia)
-                                                <div class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/5">
+                                                <div class="flex min-w-0 items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-white/5">
                                                     <img
                                                         src="{{ $existingMainMedia->getUrl() }}"
                                                         alt="{{ __('Current category image') }}"
                                                         class="size-20 shrink-0 rounded-md object-cover" />
 
-                                                    <div class="min-w-0 flex-1">
-                                                        <flux:text class="truncate text-sm font-medium">
+                                                    <div class="min-w-0 flex-1 wrap-anywhere">
+                                                        <p class="text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">
                                                             {{ $existingMainMedia->file_name }}
-                                                        </flux:text>
+                                                        </p>
                                                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
                                                             {{ __('Current saved image.') }}
                                                         </flux:text>
@@ -820,13 +842,14 @@ new class extends Component
                                                         size="sm"
                                                         variant="danger"
                                                         icon="trash"
+                                                        class="shrink-0"
                                                         wire:click="removeEditingTaxonImage"
                                                         wire:confirm="{{ __('Remove this category image?') }}"
                                                         aria-label="{{ __('Remove saved image') }}" />
                                                 </div>
                                             @endif
 
-                                            <flux:file-upload wire:model="main_image" accept="image/*">
+                                            <flux:file-upload wire:model.live="main_image" accept="image/*">
                                                 <flux:file-upload.dropzone
                                                     heading="{{ __('Drop image or click to browse') }}"
                                                     text="{{ __('JPG, PNG, GIF, WEBP up to 10MB') }}"
