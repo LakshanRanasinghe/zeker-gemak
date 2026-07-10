@@ -26,6 +26,7 @@ new class extends Component {
     public string $categoryName = '';
     public string $categoryType = 'physical_goods';
     public bool $categoryIsActive = true;
+    public bool $categoryIsDefault = false;
 
     public function getCategoriesProperty()
     {
@@ -150,6 +151,7 @@ new class extends Component {
         $this->categoryName = '';
         $this->categoryType = 'physical_goods';
         $this->categoryIsActive = true;
+        $this->categoryIsDefault = false;
     }
 
     public function openEditCategory(int $id): void
@@ -160,6 +162,7 @@ new class extends Component {
         $this->categoryName = $cat->name;
         $this->categoryType = $cat->type->value();
         $this->categoryIsActive = (bool) $cat->is_active;
+        $this->categoryIsDefault = (bool) $cat->is_default;
     }
 
     public function saveCategory(): void
@@ -176,10 +179,15 @@ new class extends Component {
         ]);
 
         $data = [
-            'name'      => $this->categoryName,
-            'type'      => $this->categoryType,
-            'is_active' => $this->categoryIsActive,
+            'name'       => $this->categoryName,
+            'type'       => $this->categoryType,
+            'is_active'  => $this->categoryIsActive,
+            'is_default' => $this->categoryIsDefault,
         ];
+
+        if ($this->categoryIsDefault) {
+            TaxCategory::where('id', '!=', $this->editingCategoryId)->update(['is_default' => false]);
+        }
 
         if ($this->editingCategoryId) {
             $category = TaxCategory::findOrFail($this->editingCategoryId);
@@ -354,6 +362,9 @@ new class extends Component {
                                     <div>
                                         <div class="flex items-center gap-1.5">
                                             <flux:text class="text-sm font-medium">{{ $cat->name }}</flux:text>
+                                            @if($cat->is_default)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">{{ __('Default') }}</span>
+                                            @endif
                                             @if($cat->is_active)
                                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">{{ __('Active') }}</span>
                                             @else
@@ -396,6 +407,7 @@ new class extends Component {
                         </flux:select>
 
                         <flux:switch wire:model="categoryIsActive" label="{{ __('Active') }}" />
+                        <flux:switch wire:model="categoryIsDefault" label="{{ __('Default') }}" />
 
                         <div class="flex gap-2 pt-1">
                             @if($editingCategoryId)

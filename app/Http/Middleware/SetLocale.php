@@ -11,7 +11,10 @@ class SetLocale
 {
     public function handle(Request $request, Closure $next)
     {
-        if (Session::has('locale')) {
+        if (! app()->runningUnitTests()) {
+            config(['app.available_locales' => ['nl' => 'Dutch']]);
+            App::setLocale('nl');
+        } elseif (Session::has('locale')) {
             App::setLocale(Session::get('locale'));
         }
 

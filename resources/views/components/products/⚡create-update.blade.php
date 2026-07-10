@@ -298,6 +298,10 @@ new class extends Component
         $this->all_properties = $allProps;
 
         if (! $productKey) {
+            $defaultCategory = TaxCategory::where('is_default', true)->first();
+            if ($defaultCategory) {
+                $this->tax_category_id = (string) $defaultCategory->id;
+            }
             return;
         }
 
@@ -1852,14 +1856,16 @@ new class extends Component
                             <flux:subheading>{{ __('Product title, description and general details.') }}
                             </flux:subheading>
                         </div>
-                        <div class="flex items-center gap-1">
-                            @foreach (config('app.available_locales') as $localeCode => $localeName)
-                                <button type="button" wire:click="switchLocale('{{ $localeCode }}')"
-                                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors {{ $selectedLocale === $localeCode ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
-                                    <span class="text-base leading-none">{{ $localeCode === 'en' ? '🇬🇧' : '🇳🇱' }}</span>
-                                </button>
-                            @endforeach
-                        </div>
+                        @if (count(config('app.available_locales')) > 1)
+                            <div class="flex items-center gap-1">
+                                @foreach (config('app.available_locales') as $localeCode => $localeName)
+                                    <button type="button" wire:click="switchLocale('{{ $localeCode }}')"
+                                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors {{ $selectedLocale === $localeCode ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                        <span class="text-base leading-none">{{ $localeCode === 'en' ? '🇬🇧' : '🇳🇱' }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div class="flex flex-col md:flex-row gap-6">

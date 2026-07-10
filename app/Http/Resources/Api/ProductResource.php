@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
+use Vanilo\Taxes\Models\TaxRate;
 use Vanilo\Translation\Models\Translation;
 
 class ProductResource extends JsonResource
@@ -21,6 +22,8 @@ class ProductResource extends JsonResource
     public function toArray(Request $request): array
     {
         $detailRoute = str_starts_with((string) $request->route()?->getName(), 'api.products.show');
+        $price = $this->priceValue();
+        $taxDetails = $this->getTaxDetails($this->resource, $price);
 
         return [
             'id' => $this->id,
@@ -50,6 +53,12 @@ class ProductResource extends JsonResource
             'state' => $this->stateValue(),
             'price' => $this->priceValue(),
             'original_price' => $this->originalPriceValue(),
+            'base_price' => $price,
+            'is_tax_inclusive' => $taxDetails['is_tax_inclusive'],
+            'tax_rate' => $taxDetails['tax_rate'],
+            'tax_amount' => $taxDetails['tax_amount'],
+            'display_price' => $taxDetails['display_price'],
+            'zone' => $taxDetails['zone'],
             'stock' => $this->stockValue(),
             'in_stock' => $this->stockValue() > 0,
             'excerpt' => $this->translatedString('excerpt', $this->resource->excerpt),
@@ -307,12 +316,21 @@ class ProductResource extends JsonResource
                 ])->all()
                 : [];
 
+            $variantPrice = $variant->price !== null ? (float) $variant->price : null;
+            $vTaxDetails = $this->getTaxDetails($variant, $variantPrice);
+
             return [
                 'id' => $variant->id,
                 'name' => $variant->name,
                 'sku' => $variant->sku,
-                'price' => $variant->price !== null ? (float) $variant->price : null,
+                'price' => $variantPrice,
                 'original_price' => $variant->original_price !== null ? (float) $variant->original_price : null,
+                'base_price' => $variantPrice,
+                'is_tax_inclusive' => $vTaxDetails['is_tax_inclusive'],
+                'tax_rate' => $vTaxDetails['tax_rate'],
+                'tax_amount' => $vTaxDetails['tax_amount'],
+                'display_price' => $vTaxDetails['display_price'],
+                'zone' => $vTaxDetails['zone'],
                 'stock' => (float) $variant->stock,
                 'in_stock' => (float) $variant->stock > 0,
                 'attributes' => $attributes,
@@ -347,5 +365,73 @@ class ProductResource extends JsonResource
             : $this->resource->taxons()->get(['slug']);
 
         return $taxons->contains(fn ($taxon) => str_contains((string) $taxon->slug, 'label'));
+    }
+
+    protected function getTaxDetails(mixed $product, ?float $price): array
+    {
+        if ($price === null) {
+            return [
+                'is_tax_inclusive' => false,
+                'tax_rate' => 0.0,
+                'tax_amount' => 0.0,
+                'display_price' => null,
+                'zone' => null,
+            ];
+        }
+
+        $taxCategoryId = $product->tax_category_id;
+
+        if (! $taxCategoryId && method_exists($product, 'product') && $product->product) {
+            $taxCategoryId = $product->product->tax_category_id;
+        }
+
+        if (! $taxCategoryId) {
+            return [
+                'is_tax_inclusive' => false,
+                'tax_rate' => 0.0,
+                'tax_amount' => 0.0,
+                'display_price' => $price,
+                'zone' => null,
+            ];
+        }
+
+        $rate = TaxRate::with(['zone.members'])
+            ->where('tax_category_id', $taxCategoryId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $rate) {
+            return [
+                'is_tax_inclusive' => false,
+                'tax_rate' => 0.0,
+                'tax_amount' => 0.0,
+                'display_price' => $price,
+                'zone' => null,
+            ];
+        }
+
+        $isInclusive = (bool) ($rate->configuration['included'] ?? false);
+        $taxRatePercent = (float) ($rate->rate ?? 0);
+
+        if ($isInclusive) {
+            $taxAmount = $price - ($price / (1 + ($taxRatePercent / 100)));
+            $displayPrice = $price;
+        } else {
+            $taxAmount = $price * ($taxRatePercent / 100);
+            $displayPrice = $price + $taxAmount;
+        }
+
+        return [
+            'is_tax_inclusive' => $isInclusive,
+            'tax_rate' => $taxRatePercent,
+            'tax_amount' => round($taxAmount, 4),
+            'display_price' => round($displayPrice, 4),
+            'zone' => $rate->zone ? [
+                'id' => (int) $rate->zone->id,
+                'name' => $rate->zone->name,
+                'scope' => (string) $rate->zone->scope,
+                'regions' => $rate->zone->members->pluck('member_id')->all(),
+            ] : null,
+        ];
     }
 }

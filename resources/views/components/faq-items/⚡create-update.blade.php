@@ -291,26 +291,28 @@ new class extends Component {
                         <span class="font-medium">{{ config('app.available_locales')[$selectedLocale] ?? $selectedLocale }}</span>
                         {{ __('version.') }}</flux:subheading>
                 </div>
-                <div class="flex items-center gap-3">
-                    <flux:button type="button" size="sm" variant="filled" icon="language"
-                        wire:click="translate" wire:loading.attr="disabled"
-                        wire:target="translate,runTranslation">
-                        <span wire:loading.remove wire:target="translate,runTranslation">
-                            {{ __('Translate to :locale', ['locale' => config('app.available_locales')[$this->translateTarget] ?? $this->translateTarget]) }}
-                        </span>
-                        <span wire:loading wire:target="translate,runTranslation">
-                            {{ __('Translating...') }}
-                        </span>
-                    </flux:button>
-                    <div class="flex items-center gap-1">
-                        @foreach (config('app.available_locales') as $localeCode => $localeName)
-                            <button type="button" wire:click="switchLocale('{{ $localeCode }}')"
-                                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors {{ $selectedLocale === $localeCode ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
-                                <span class="text-base leading-none">{{ $localeCode === 'en' ? '🇬🇧' : '🇳🇱' }}</span>
-                            </button>
-                        @endforeach
+                @if (count(config('app.available_locales')) > 1)
+                    <div class="flex items-center gap-3">
+                        <flux:button type="button" size="sm" variant="filled" icon="language"
+                            wire:click="translate" wire:loading.attr="disabled"
+                            wire:target="translate,runTranslation">
+                            <span wire:loading.remove wire:target="translate,runTranslation">
+                                {{ __('Translate to :locale', ['locale' => config('app.available_locales')[$this->translateTarget] ?? $this->translateTarget]) }}
+                            </span>
+                            <span wire:loading wire:target="translate,runTranslation">
+                                {{ __('Translating...') }}
+                            </span>
+                        </flux:button>
+                        <div class="flex items-center gap-1">
+                            @foreach (config('app.available_locales') as $localeCode => $localeName)
+                                <button type="button" wire:click="switchLocale('{{ $localeCode }}')"
+                                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors {{ $selectedLocale === $localeCode ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                    <span class="text-base leading-none">{{ $localeCode === 'en' ? '🇬🇧' : '🇳🇱' }}</span>
+                                </button>
+                            @endforeach
+                        </div>
                     </div>
-                </div>
+                @endif
             </div>
 
             <flux:input wire:model="question" label="{{ __('Question') }}"

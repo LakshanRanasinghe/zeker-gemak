@@ -659,7 +659,7 @@ new class extends Component {
 };
 ?>
 
-<div @if ($activeExport && $activeExport->isInProgress()) wire:poll.2s="pollExport" @endif>
+<div class="flow-root" @if ($activeExport && $activeExport->isInProgress()) wire:poll.2s="pollExport" @endif>
     <div class="flex items-center justify-between mb-6">
         <div>
             <flux:heading size="xl" level="1">{{ __('Products') }}</flux:heading>

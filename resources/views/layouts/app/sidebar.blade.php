@@ -5,14 +5,13 @@
     @include('partials.head')
 </head>
 
-<body class="min-h-screen bg-white dark:bg-zinc-800">
+<body class="h-screen bg-white dark:bg-zinc-800 flex flex-col lg:flex-row overflow-hidden">
     @persist('toast')
-        <flux:toast position="top end" />
+    <flux:toast position="top end" />
     @endpersist
     <flux:sidebar sticky collapsible="mobile"
-        class="border-e border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 h-screen flex flex-col overflow-hidden">
-        <div class="absolute inset-0 pointer-events-none opacity-10"
-            style="background-image: url('{{ asset('images/bg.png') }}');
+        class="border-e border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
+        <div class="absolute inset-0 pointer-events-none opacity-10" style="background-image: url('{{ asset('images/bg.png') }}');
                background-size: 800px;
                background-position: center;
                background-repeat: repeat;">
@@ -26,7 +25,7 @@
                 </flux:sidebar.header>
             </div>
 
-            <div class="flex-1 min-h-0 overflow-y-auto">
+            <div class="flex-1 min-h-0 overflow-y-auto mt-6">
                 <flux:sidebar.nav>
                     <flux:sidebar.group :heading="__('Platform')" class="grid">
                         <flux:sidebar.item icon="home" :href="route('dashboard')"
@@ -117,22 +116,24 @@
             </div>
 
             <div class="flex flex-col w-full gap-3 pt-3 border-t border-zinc-200 dark:border-zinc-700">
-                <flux:dropdown class="w-full">
-                    <flux:button icon:trailing="chevron-down" class="w-full">
-                        {{ __(config('app.available_locales')[app()->getLocale()]) }}
-                    </flux:button>
+                @if (count(config('app.available_locales')) > 1)
+                    <flux:dropdown class="w-full">
+                        <flux:button icon:trailing="chevron-down" class="w-full">
+                            {{ __(config('app.available_locales')[app()->getLocale()]) }}
+                        </flux:button>
 
-                    <flux:menu>
-                        <flux:menu.radio.group>
-                            @foreach (config('app.available_locales') as $locale => $label)
-                                <flux:menu.item :checked="app()->getLocale() == $locale"
-                                    :href="route('lang.switch', $locale)" wire:navigate>
-                                    {{ __($label) }}
-                                </flux:menu.item>
-                            @endforeach
-                        </flux:menu.radio.group>
-                    </flux:menu>
-                </flux:dropdown>
+                        <flux:menu>
+                            <flux:menu.radio.group>
+                                @foreach (config('app.available_locales') as $locale => $label)
+                                    <flux:menu.item :checked="app()->getLocale() == $locale"
+                                        :href="route('lang.switch', $locale)" wire:navigate>
+                                        {{ __($label) }}
+                                    </flux:menu.item>
+                                @endforeach
+                            </flux:menu.radio.group>
+                        </flux:menu>
+                    </flux:dropdown>
+                @endif
 
                 <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
             </div>
