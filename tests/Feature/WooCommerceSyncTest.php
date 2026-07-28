@@ -9,6 +9,7 @@ use App\Models\Taxon;
 use App\Models\User;
 use App\Models\WooCommerceSyncRun;
 use App\Services\WooCommerceSyncService;
+use Illuminate\Foundation\Console\QueuedCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -160,8 +161,8 @@ it('queues product media separately and bulk reindexing only after media', funct
     Queue::assertNotPushed(MakeSearchable::class);
 });
 
-it('completes product sync without automatically reindexing', function (): void {
-    Queue::fake([MakeSearchable::class, RemoveFromSearch::class]);
+it('queues one reindex after product media is complete', function (): void {
+    Queue::fake();
 
     Product::withoutSyncingToSearch(fn () => Product::query()->create([
         'woocommerce_id' => 501,
@@ -184,11 +185,18 @@ it('completes product sync without automatically reindexing', function (): void 
     ]);
 
     (new FinalizeWooCommerceProductSync($run->id))->handle();
+    (new FinalizeWooCommerceProductSync($run->id))->handle();
 
     expect($run->fresh()->status)->toBe('completed')
-        ->and($run->fresh()->reindex_queued_at)->toBeNull()
+        ->and($run->fresh()->reindex_queued_at)->not->toBeNull()
         ->and($run->fresh()->error)->toContain('2 WooCommerce images');
 
+    Queue::assertPushedOn(
+        'scout',
+        QueuedCommand::class,
+        fn (QueuedCommand $job): bool => $job->displayName() === 'app:reindex-elasticsearch'
+    );
+    Queue::assertPushed(QueuedCommand::class, 1);
     Queue::assertNotPushed(MakeSearchable::class);
     Queue::assertNotPushed(RemoveFromSearch::class);
 });
