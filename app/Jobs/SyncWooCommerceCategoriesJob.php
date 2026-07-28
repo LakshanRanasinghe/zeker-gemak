@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Services\OptimizedWooCommerceCategorySyncService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -78,7 +77,7 @@ class SyncWooCommerceCategoriesJob implements ShouldQueue
             return;
         }
 
-        Log::info('WooCommerce category sync completed. Starting taxon cleanup...', [
+        Log::info('WooCommerce category sync completed. Starting stale category prune...', [
             'total_batches' => $this->batch,
             'final_page' => $this->page,
         ]);
@@ -99,11 +98,8 @@ class SyncWooCommerceCategoriesJob implements ShouldQueue
                 'synced_category_count' => count($syncedCategoryIds),
                 'pruned_taxon_count' => $prunedCount,
             ]);
-
-            Artisan::call('app:cleanup-taxons');
-            Log::info('Taxon cleanup completed successfully after category sync.');
         } catch (Throwable $exception) {
-            Log::error('Taxon cleanup failed after category sync: '.$exception->getMessage());
+            Log::error('Category prune failed after category sync: '.$exception->getMessage());
         }
     }
 

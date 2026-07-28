@@ -3,13 +3,16 @@
 namespace App\Services;
 
 use App\Models\DiscountGroup;
+use App\Models\Material;
 use App\Models\Product;
 // use App\Models\ProductMeta; // DEPRECATED: Now using Vanilo Properties
 use App\Models\ProductMeta;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Vanilo\Properties\Models\Property;
@@ -51,6 +54,8 @@ class OptimizedWooCommerceProductSyncService
     /** @var int Number of API retries */
     private const API_RETRIES = 3;
 
+    private const PRIMARY_LOCALE = 'nl';
+
     /**
      * Track which WooCommerce products we've already synced in this run.
      * Prevents duplicate processing if API returns same product twice.
@@ -74,6 +79,9 @@ class OptimizedWooCommerceProductSyncService
      * @var array<int, array>
      */
     private array $translationCache = [];
+
+    /** @var array<string, bool> */
+    private array $productColumnExists = [];
 
     public function __construct(
         private OptimizedWooCommerceCategorySyncService $categorySyncService
@@ -119,6 +127,7 @@ class OptimizedWooCommerceProductSyncService
             'skipped' => 0,
             'translations_created' => 0,
             'duplicates_nullified' => 0,
+            'synced_ids' => [],
         ];
 
         // Step 1: Fetch products from WooCommerce API
@@ -131,10 +140,7 @@ class OptimizedWooCommerceProductSyncService
 
         // Step 2: Pre-load category mappings for ALL products in this batch
         // This is a key performance optimization - one query instead of many
-        // Only needed for primary locale (categories are language-agnostic)
-        if ($locale === config('app.locale')) {
-            $this->preloadCategoryMappings($products);
-        }
+        $this->preloadCategoryMappings($products);
 
         // Step 3: Batch-fetch all translations for this batch
         // Optimization: Instead of fetching NL products one-by-one,
@@ -147,19 +153,44 @@ class OptimizedWooCommerceProductSyncService
                 continue;
             }
 
-            // Wrap each product in a transaction for data consistency
-            DB::transaction(function () use ($product, $locale, $skipMedia, &$stats, $log) {
-                $this->syncProduct(
-                    productData: $product,
-                    locale: $locale,
-                    skipMedia: $skipMedia,
-                    stats: $stats,
-                    log: $log,
+            try {
+                DB::transaction(function () use ($product, $locale, $skipMedia, &$stats, $log) {
+                    $this->syncProduct(
+                        productData: $product,
+                        locale: $locale,
+                        skipMedia: $skipMedia,
+                        stats: $stats,
+                        log: $log,
+                    );
+                });
+            } catch (UniqueConstraintViolationException $exception) {
+                if (! $this->isProductSkuUniqueConstraintViolation($exception)) {
+                    throw $exception;
+                }
+
+                $woocommerceProductId = (int) ($product['id'] ?? 0);
+                $articleNumber = $this->extractArticleNumber($product);
+                $sku = $this->resolveImportSku($product, $articleNumber, $woocommerceProductId);
+
+                $stats['skipped']++;
+                $stats['synced_ids'][] = $woocommerceProductId;
+
+                $log(
+                    'warn',
+                    "Skipped WooCommerce product #{$woocommerceProductId}: SKU {$sku} was assigned concurrently to another local product. The product transaction was rolled back."
                 );
-            });
+            }
         }
 
         return $stats;
+    }
+
+    private function isProductSkuUniqueConstraintViolation(UniqueConstraintViolationException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'products_sku_unique')
+            || str_contains($message, 'UNIQUE constraint failed: products.sku');
     }
 
     /**
@@ -305,9 +336,11 @@ class OptimizedWooCommerceProductSyncService
         // Route to appropriate sync method based on locale
         // Dutch (nl) is the primary locale for WooCommerce imports
         // English (en) is stored as translations
-        if ($locale === 'nl') {
+        if ($locale === 'nl' || empty(data_get($productData, 'translations.nl'))) {
             // Primary locale (NL) - create full product
-            $this->syncPrimaryProduct($productData, $skipMedia, $stats, $log);
+            if (! $this->syncPrimaryProduct($productData, $skipMedia, $stats, $log)) {
+                return;
+            }
         } else {
             // Secondary locale (EN) - create translation
             $this->syncProductTranslation($productData, $locale, $stats, $log);
@@ -335,7 +368,7 @@ class OptimizedWooCommerceProductSyncService
         bool $skipMedia,
         array &$stats,
         callable $log,
-    ): void {
+    ): bool {
         $woocommerceProductId = (int) ($productData['id'] ?? 0);
         $articleNumber = $this->extractArticleNumber($productData);
         $fallbackSku = $this->fallbackSku($woocommerceProductId);
@@ -345,6 +378,7 @@ class OptimizedWooCommerceProductSyncService
         $productPayload = $this->normalizeProductData($productData, $sku);
 
         $product = $this->findProductForImport(
+            wordpressProductId: $woocommerceProductId,
             articleNumber: $articleNumber,
             slug: (string) $productPayload['slug'],
             sku: $sku,
@@ -394,7 +428,10 @@ class OptimizedWooCommerceProductSyncService
 
         app(SearchIndexInvalidator::class)->reindexProduct($product);
 
+        $stats['synced_ids'][] = $woocommerceProductId;
         $stats['products_synced']++;
+
+        return true;
     }
 
     /**
@@ -416,11 +453,17 @@ class OptimizedWooCommerceProductSyncService
         callable $log
     ): void {
         $woocommerceProductId = (int) ($productData['id'] ?? 0);
+        $sku = $this->resolveImportSku(
+            $productData,
+            $this->extractArticleNumber($productData),
+            $woocommerceProductId,
+        );
         $articleNumber = $this->extractArticleNumber($productData);
-        $sku = $this->resolveImportSku($productData, $articleNumber, $woocommerceProductId);
         $slug = $this->canonicalProductSlug($this->generateSlug($productData, $sku), $articleNumber);
+        $primaryWordPressId = (int) data_get($productData, 'translations.nl', 0) ?: null;
 
         $product = $this->findProductForImport(
+            wordpressProductId: $primaryWordPressId,
             articleNumber: $articleNumber,
             slug: $slug,
             sku: $sku,
@@ -434,22 +477,15 @@ class OptimizedWooCommerceProductSyncService
             return;
         }
 
-        // Delete old translation for this locale (we'll recreate it)
-        $product->translations()->where('language', '=', $locale, 'and')->delete();
-
-        // Prepare translation fields
         $translationFields = $this->normalizeProductData($productData, $sku);
 
-        // Add attributes to translation fields
         foreach ($productData['attributes'] ?? [] as $attr) {
             $metaKey = Str::slug((string) ($attr['name'] ?? ''));
             if ($metaKey !== '') {
-                $metaValue = $this->extractAttributeValue($attr['options'] ?? null);
-                $translationFields[$metaKey] = $metaValue;
+                $translationFields[$metaKey] = $this->extractAttributeValue($attr['options'] ?? null);
             }
         }
 
-        // Handle slug conflicts
         $slug = $this->resolveTranslationSlug(
             $product,
             $translationFields['slug'],
@@ -457,17 +493,28 @@ class OptimizedWooCommerceProductSyncService
             $sku
         );
 
-        // Create translation
-        Translation::createForModel($product, $locale, array_merge($translationFields, [
+        $payload = array_merge($translationFields, [
             'name' => $translationFields['name'],
             'slug' => $slug,
-        ]));
+        ]);
 
-        $product->searchable();
+        $translation = Translation::findByModel($product, $locale);
 
-        $stats['translations_created']++;
+        if ($translation !== null) {
+            $translation->update([
+                'name' => $payload['name'],
+                'slug' => $payload['slug'],
+                'fields' => collect($payload)->except(['name', 'slug'])->toArray(),
+            ]);
+        } else {
+            Translation::createForModel($product, $locale, $payload);
+            $stats['translations_created']++;
+        }
+
+        app(SearchIndexInvalidator::class)->reindexProduct($product);
+
         $stats['products_synced']++;
-        $log('info', "Created {$locale} translation for product #{$product->id} ({$sku})");
+        $log('info', "Synced {$locale} translation for product #{$product->id} ({$sku})");
     }
 
     /**
@@ -630,12 +677,23 @@ class OptimizedWooCommerceProductSyncService
         // WooCommerce uses "publish" status, we use "active"
         $state = (string) ($productData['status'] ?? '') === 'publish' ? 'active' : 'draft';
 
+        // Extract material_id from meta_data
+        // $materialId = $this->extractMaterialId($productData);
+
         $articleNumber = $this->extractArticleNumber($productData);
         $packing_group = 1; // default value
+        $jaritechStock = null;
         $metaData = $productData['meta_data'] ?? [];
+        $make = '';
         foreach ($metaData as $meta) {
             if ($meta['key'] === '_custom_product_text_groupof') {
                 $packing_group = $meta['value'];
+            }
+            if ($meta['key'] === '_stock_jaritech') {
+                $jaritechStock = $meta['value'];
+            }
+            if ($meta['key'] === '_custom_product_text_merk') {
+                $make = trim(str_replace(',', '', $meta['value']));
             }
         }
 
@@ -646,11 +704,20 @@ class OptimizedWooCommerceProductSyncService
             $packing_group = (int) $packing_group;
         }
 
+        // Convert empty jeritech_stock to null (integer column cannot accept empty strings)
+        if ($jaritechStock === '' || $jaritechStock === null) {
+            $jaritechStock = null;
+        } elseif (is_numeric($jaritechStock)) {
+            $jaritechStock = (int) $jaritechStock;
+        } else {
+            $jaritechStock = null;
+        }
+
         // Extract SEO metadata from Yoast
         $metaTitle = $this->extractMetaTitle($productData);
         $metaDescription = $this->extractMetaDescription($productData);
 
-        return [
+        $payload = [
             'name' => (string) ($productData['name'] ?? ''),
             'title' => (string) ($productData['name'] ?? ''),
             'slug' => $this->canonicalProductSlug($this->generateSlug($productData, $sku), $articleNumber),
@@ -663,11 +730,26 @@ class OptimizedWooCommerceProductSyncService
             'description' => (string) $productData['short_description'],
             'content' => (string) ($productData['description'] ?? ''),
             'state' => $state,
+            // 'material_id' => $materialId,
             'packing_group' => $packing_group,
             'meta_title' => $metaTitle,
             'meta_description' => $metaDescription,
             'discount_group_id' => $this->extractDiscountGroupId($productData),
         ];
+
+        if ($this->hasProductColumn('jeritech_stock')) {
+            $payload['jeritech_stock'] = (int) $jaritechStock;
+        }
+
+        if ($this->hasProductColumn('make')) {
+            $payload['make'] = $make;
+        }
+
+        if ($this->hasProductColumn('wordpress_id')) {
+            $payload['wordpress_id'] = (int) ($productData['id'] ?? 0) ?: null;
+        }
+
+        return $payload;
     }
 
     /**
@@ -732,13 +814,25 @@ class OptimizedWooCommerceProductSyncService
         return preg_match('/-\d+$/', $slug) === 1;
     }
 
-    private function findProductForImport(?string $articleNumber, string $slug, string $sku, string $fallbackSku): ?Product
+    private function findProductForImport(?int $wordpressProductId, ?string $articleNumber, string $slug, string $sku, string $fallbackSku): ?Product
     {
+        if ($this->hasProductColumn('wordpress_id') && $wordpressProductId !== null && $wordpressProductId > 0) {
+            $wordpressMatch = Product::query()->where('wordpress_id', $wordpressProductId)->first();
+
+            if ($wordpressMatch !== null) {
+                return $wordpressMatch;
+            }
+        }
+
         if ($articleNumber !== null) {
             $baseSlug = $this->baseProductSlug($slug);
-            $articleMatch = Product::query()
-                ->where('article_number', $articleNumber)
-                ->get()
+            $articleQuery = Product::query()->where('article_number', $articleNumber);
+
+            if ($this->hasProductColumn('wordpress_id')) {
+                $articleQuery->whereNull('wordpress_id');
+            }
+
+            $articleMatch = $articleQuery->get()
                 ->filter(fn (Product $product): bool => $this->baseProductSlug((string) $product->slug) === $baseSlug)
                 ->sortBy(fn (Product $product): string => sprintf(
                     '%d-%d-%010d',
@@ -753,17 +847,34 @@ class OptimizedWooCommerceProductSyncService
             }
         }
 
-        $skuMatch = Product::query()->where('sku', $sku)->first();
+        $skuQuery = Product::query()->where('sku', $sku);
+
+        if ($this->hasProductColumn('wordpress_id')) {
+            $skuQuery->whereNull('wordpress_id');
+        }
+
+        $skuMatch = $skuQuery->first();
 
         if ($skuMatch !== null) {
             return $skuMatch;
         }
 
         if ($fallbackSku !== $sku) {
-            return Product::query()->where('sku', $fallbackSku)->first();
+            $fallbackQuery = Product::query()->where('sku', $fallbackSku);
+
+            if ($this->hasProductColumn('wordpress_id')) {
+                $fallbackQuery->whereNull('wordpress_id');
+            }
+
+            return $fallbackQuery->first();
         }
 
         return null;
+    }
+
+    private function hasProductColumn(string $column): bool
+    {
+        return $this->productColumnExists[$column] ??= Schema::hasColumn('products', $column);
     }
 
     /**
@@ -946,18 +1057,25 @@ class OptimizedWooCommerceProductSyncService
         $attributes = $productData['attributes'] ?? [];
 
         if (empty($attributes)) {
+            // app(PrinterProductCompatibilitySyncService::class)->syncProduct($product);
+
             return;
         }
 
+        // Build property slug => value pairs for bulk sync
         $propertyValues = [];
 
+        // Process each attribute
         foreach ($attributes as $attribute) {
+            // Create a URL-friendly key from the attribute name
+            // Example: "Product Size" becomes "product-size"
             $slug = Str::slug((string) ($attribute['name'] ?? ''));
 
             if (empty($slug) || $slug == 'articlenumber') {
-                continue;
+                continue; // Skip if no valid key
             }
 
+            // Ensure the property exists
             Property::firstOrCreate(
                 ['slug' => $slug],
                 [
@@ -966,18 +1084,24 @@ class OptimizedWooCommerceProductSyncService
                 ]
             );
 
+            // Get first non-empty option value
             $options = $attribute['options'] ?? [];
             foreach ($options as $value) {
                 if (! empty($value)) {
+                    // Use first value only (multi-value support can be added later if needed)
                     $propertyValues[$slug] = $value;
                     break;
                 }
             }
         }
 
+        // Sync all properties at once using Vanilo's built-in method
+        // This properly handles duplicates by replacing existing values
         if (! empty($propertyValues)) {
             $product->replacePropertyValuesByScalar($propertyValues);
         }
+
+        // app(PrinterProductCompatibilitySyncService::class)->syncProduct($product);
     }
 
     /**
@@ -1144,6 +1268,47 @@ class OptimizedWooCommerceProductSyncService
 
         return '';
     }
+
+    /**
+     * Extract material ID from product meta_data.
+     *
+     * Looks for the '_custom_product_text_materiaalc' meta field,
+     * finds a matching material by title, and returns the material ID.
+     *
+     * Example meta_data entry:
+     * {"key": "_custom_product_text_materiaalc", "value": "DTD10"}
+     *
+     * This will lookup materials.title = "DTD10" and return materials.id.
+     * If no match is found, returns null (product will sync without material).
+     *
+     * @param  array  $productData  Product data
+     * @return int|null Material ID or null if not found
+     */
+    // private function extractMaterialId(array $productData): ?int
+    // {
+    //     // Extract material title from meta_data
+    //     $materialTitle = null;
+
+    //     foreach ($productData['meta_data'] ?? [] as $meta) {
+    //         if (($meta['key'] ?? null) === '_custom_product_text_materiaalc') {
+    //             $materialTitle = trim((string) ($meta['value'] ?? ''));
+    //             break;
+    //         }
+    //     }
+
+    //     // No material specified or empty value
+    //     if (empty($materialTitle)) {
+    //         return null;
+    //     }
+
+    //     // Look up material by title (case-insensitive)
+    //     // We use DB::raw with LOWER() for case-insensitive comparison
+    //     $material = Material::query()
+    //         ->where(DB::raw('LOWER(title)'), strtolower($materialTitle))
+    //         ->first();
+
+    //     return $material?->id;
+    // }
 
     /**
      * Extract discount group ID from product meta_data.
@@ -1345,6 +1510,7 @@ class OptimizedWooCommerceProductSyncService
             'skipped' => 0,
             'translations_created' => 0,
             'duplicates_nullified' => 0,
+            'synced_ids' => [],
         ];
 
         $page = 1;
@@ -1368,6 +1534,13 @@ class OptimizedWooCommerceProductSyncService
             $stats['skipped'] += (int) $batchStats['skipped'];
             $stats['translations_created'] += (int) ($batchStats['translations_created'] ?? 0);
             $stats['duplicates_nullified'] += (int) ($batchStats['duplicates_nullified'] ?? 0);
+            $stats['synced_ids'] = collect($stats['synced_ids'])
+                ->merge($batchStats['synced_ids'] ?? [])
+                ->map(fn ($id): int => (int) $id)
+                ->filter(fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
 
             // If we got fewer products than requested, we're done
             if ((int) $batchStats['products_fetched'] < $perPage) {

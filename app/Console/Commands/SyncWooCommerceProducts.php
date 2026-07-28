@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\SyncWooCommerceCategoriesJob;
 use App\Jobs\SyncWooCommerceProductsJob;
 use App\Services\OptimizedWooCommerceCategorySyncService;
 use Illuminate\Console\Command;
@@ -84,14 +83,13 @@ class SyncWooCommerceProducts extends Command
         // Run category sync synchronously (blocks until complete)
         // We need ALL categories imported before products start
         try {
-            SyncWooCommerceCategoriesJob::dispatchSync(
-                page: 1,
+            $categoryStats = $categoryService->syncAllCategories(
                 pageSize: 100,
-                batch: 1,
+                logger: fn (string $level, string $message): null => $this->logCategorySyncMessage($level, $message),
             );
 
             $categoryDuration = $categoriesStartTime->diffInSeconds(now());
-            $this->info("✓ Categories synced in {$categoryDuration} seconds");
+            $this->info("✓ {$categoryStats['fetched']} categories synced across {$categoryStats['pages']} pages in {$categoryDuration} seconds");
         } catch (\Exception $e) {
             $this->error("✗ Category sync failed: {$e->getMessage()}");
 
@@ -157,6 +155,17 @@ class SyncWooCommerceProducts extends Command
         $this->line('  • Original category names and slugs are preserved');
 
         return self::SUCCESS;
+    }
+
+    private function logCategorySyncMessage(string $level, string $message): null
+    {
+        match ($level) {
+            'warn', 'warning' => $this->warn("  {$message}"),
+            'error' => $this->error("  {$message}"),
+            default => null,
+        };
+
+        return null;
     }
 
     /**

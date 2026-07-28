@@ -6,6 +6,7 @@ use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Models\Taxon;
 use App\Models\WooCommerceCategoryTaxonMapping;
+use App\Support\ApiLocale;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -14,7 +15,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Throwable;
-use Vanilo\Category\Models\TaxonProxy;
 use Vanilo\Foundation\Models\Taxonomy;
 use Vanilo\Translation\Models\Translation;
 
@@ -25,8 +25,8 @@ use Vanilo\Translation\Models\Translation;
  * It maps external WooCommerce category IDs to internal Vanilo Taxon IDs for relationship management.
  *
  * Language handling:
- * - Dutch categories are imported as the primary Taxons
- * - Linked English categories are stored as translations on those same Taxons
+ * - Dutch categories are always imported as the primary Taxons
+ * - Every other configured locale is stored as a translation on the same Taxon
  * - Products in both languages reference the same local category identity
  *
  * Performance Optimizations:
@@ -40,8 +40,6 @@ class OptimizedWooCommerceCategorySyncService
     /** @var string Source identifier for WooCommerce */
     private const SOURCE = 'woocommerce';
 
-    private const PRIMARY_LOCALE = 'nl';
-
     /** @var string Name of the Vanilo taxonomy for categories */
     private const TAXONOMY_NAME = 'Category';
 
@@ -49,6 +47,8 @@ class OptimizedWooCommerceCategorySyncService
     private const TAXONOMY_SLUG = 'category';
 
     private const TAXON_MORPH_TYPE = 'taxon';
+
+    private const PRIMARY_LOCALE = 'nl';
 
     /** @var int Maximum categories per API request */
     private const MAX_PER_PAGE = 100;
@@ -62,8 +62,11 @@ class OptimizedWooCommerceCategorySyncService
     /** @var int API request timeout in seconds */
     private const REQUEST_TIMEOUT = 60;
 
-    /** @var array<int, array> */
-    private array $englishCategoryCache = [];
+    /** @var array<string, array<int, array<string, mixed>|null>> */
+    private array $localizedCategoryCache = [];
+
+    /** @var Collection<int, WooCommerceCategoryTaxonMapping>|null */
+    private ?Collection $mappingsCache = null;
 
     /**
      * Sync a single page of categories from WooCommerce.
@@ -92,12 +95,18 @@ class OptimizedWooCommerceCategorySyncService
         // Step 1: Fetch categories from WooCommerce API
         $categoryPage = $this->fetchCategoriesPage($page, $pageSize);
         $categories = $categoryPage['categories'];
+
         $stats['fetched'] = count($categories);
         $stats['raw_fetched'] = $categoryPage['raw_count'];
         $stats['fetched_ids'] = collect($categories)
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->values()
+            ->all();
+        $stats['fetched_parent_ids'] = collect($categories)
+            ->mapWithKeys(fn (array $category): array => [
+                (int) $category['id'] => (int) ($category['parent'] ?? 0),
+            ])
             ->all();
         $stats['has_more'] = $categoryPage['raw_count'] === $pageSize;
 
@@ -110,7 +119,7 @@ class OptimizedWooCommerceCategorySyncService
         // Step 2: Sort categories - parents first, then children
         // This ensures parent taxons exist before we try to link children to them
         $categories = $this->sortCategoriesByHierarchy($categories);
-        $this->preloadEnglishCategories($categories, $log);
+        $this->preloadLocalizedCategories($categories, $log);
 
         // Step 3: Ensure the Category taxonomy exists
         $taxonomy = $this->ensureTaxonomyExists($stats, $log);
@@ -118,13 +127,8 @@ class OptimizedWooCommerceCategorySyncService
         // Step 4: Load existing mappings once (cached for this request)
         $mappings = $this->getExistingMappings();
 
-        // Step 5: Batch-fetch the other-language siblings (e.g. English) linked
-        // from each category's translations map. Done before the transaction so
-        // the HTTP calls don't hold a DB transaction open.
-        $translationCache = $this->preloadSecondaryTranslations($categories, $log);
-
-        // Step 6: Process each category in a transaction for atomicity
-        DB::transaction(function () use ($categories, $taxonomy, $mappings, $translationCache, &$stats, $log) {
+        // Step 5: Process each category in a transaction for atomicity
+        DB::transaction(function () use ($categories, $taxonomy, $mappings, &$stats, $log) {
             foreach ($categories as $category) {
                 $this->syncCategory(
                     category: $category,
@@ -132,7 +136,6 @@ class OptimizedWooCommerceCategorySyncService
                     mappings: $mappings,
                     stats: $stats,
                     log: $log,
-                    translationCache: $translationCache,
                 );
             }
         });
@@ -140,6 +143,85 @@ class OptimizedWooCommerceCategorySyncService
         // Step 6: Link parent-child relationships after all taxons exist
         if ($taxonomy !== null) {
             $this->linkParentRelationships($categories, $taxonomy->id, $mappings, $stats, $log);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Synchronize every category page before returning.
+     *
+     * @return array<string, mixed>
+     */
+    public function syncAllCategories(
+        int $pageSize = 100,
+        ?callable $logger = null,
+        bool $pruneMissing = true,
+    ): array {
+        $pageSize = max(1, min(self::MAX_PER_PAGE, $pageSize));
+        $log = $logger ?? static fn (string $level, string $message): null => null;
+        $stats = [
+            'pages' => 0,
+            'page_size' => $pageSize,
+            'fetched' => 0,
+            'created' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'parent_linked' => 0,
+            'parent_missing' => 0,
+            'pruned' => 0,
+            'taxonomy_created' => 0,
+            'taxonomy_updated' => 0,
+            'fetched_ids' => [],
+            'fetched_parent_ids' => [],
+        ];
+
+        for ($page = 1; $page <= self::MAX_PAGES; $page++) {
+            $pageStats = $this->syncCategoryPage($page, $pageSize, $log);
+
+            $stats['pages']++;
+            foreach (['fetched', 'created', 'updated', 'skipped', 'parent_linked', 'parent_missing'] as $key) {
+                $stats[$key] += (int) ($pageStats[$key] ?? 0);
+            }
+
+            $stats['fetched_ids'] = collect($stats['fetched_ids'])
+                ->merge($pageStats['fetched_ids'] ?? [])
+                ->map(fn ($id): int => (int) $id)
+                ->filter(fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+            $stats['fetched_parent_ids'] = array_replace(
+                $stats['fetched_parent_ids'],
+                $pageStats['fetched_parent_ids'] ?? [],
+            );
+
+            if (! (bool) ($pageStats['has_more'] ?? false)) {
+                break;
+            }
+        }
+
+        $taxonomy = $this->ensureTaxonomyExists($stats, $log);
+        if ($taxonomy !== null) {
+            $categories = collect($stats['fetched_parent_ids'])
+                ->map(fn (int $parentId, int|string $categoryId): array => [
+                    'id' => (int) $categoryId,
+                    'parent' => $parentId,
+                ])
+                ->values()
+                ->all();
+
+            $this->linkParentRelationships(
+                $categories,
+                $taxonomy->id,
+                $this->getExistingMappings(),
+                $stats,
+                $log,
+            );
+        }
+
+        if ($pruneMissing) {
+            $stats['pruned'] = $this->pruneMissingWooCommerceCategories($stats['fetched_ids'], $log);
         }
 
         return $stats;
@@ -184,7 +266,7 @@ class OptimizedWooCommerceCategorySyncService
             return null;
         }
 
-        $this->preloadEnglishCategories([$category], $log);
+        $this->preloadLocalizedCategories([$category], $log);
 
         // Ensure taxonomy exists
         $stats = $this->initializeStats(1, 1);
@@ -206,11 +288,8 @@ class OptimizedWooCommerceCategorySyncService
             }
         }
 
-        // Pull this category's other-language siblings before opening the transaction.
-        $translationCache = $this->preloadSecondaryTranslations([$category], $log);
-
         // Import the category within a transaction
-        return DB::transaction(function () use ($category, $taxonomy, $parentTaxonId, $log, $translationCache) {
+        return DB::transaction(function () use ($category, $taxonomy, $parentTaxonId, $log) {
             $mappings = $this->getExistingMappings();
             $stats = $this->initializeStats(1, 1);
 
@@ -220,12 +299,11 @@ class OptimizedWooCommerceCategorySyncService
                 mappings: $mappings,
                 stats: $stats,
                 log: $log,
-                forcedParentId: $parentTaxonId,
-                translationCache: $translationCache
+                forcedParentId: $parentTaxonId
             );
 
             // Retrieve and return the created Taxon ID. The requested ID may
-            // have been an English translation ID; fetchSingleCategory normalizes
+            // have been a translated category ID; fetchSingleCategory normalizes
             // it back to the Dutch primary category ID before syncing.
             $finalMapping = WooCommerceCategoryTaxonMapping::query()
                 ->where('source', self::SOURCE)
@@ -241,8 +319,8 @@ class OptimizedWooCommerceCategorySyncService
 
     /**
      * Remove mapped WooCommerce category taxons that were not present in the
-     * completed Dutch category sync. This clears older English primary taxons
-     * while preserving English names as translations on the Dutch taxons.
+     * completed primary-locale category sync. This clears older translated
+     * primary taxons while preserving localized names as translations.
      */
     public function pruneMissingWooCommerceCategories(array $syncedWooCommerceCategoryIds, ?callable $logger = null): int
     {
@@ -303,13 +381,13 @@ class OptimizedWooCommerceCategorySyncService
 
         app(SearchIndexInvalidator::class)->reindexTaxonAssignmentTargets(
             $staleTaxonRows->whereIn('model_type', [morph_type_of(Product::class), Product::class])->pluck('model_id'),
-            $staleTaxonRows->whereIn('model_type', [morph_type_of(MasterProduct::class), MasterProduct::class])->pluck('model_id'),
+            $staleTaxonRows->whereIn('model_type', [morph_type_of(MasterProduct::class), MasterProduct::class])->pluck('model_id')
         );
 
         Cache::forget($this->getMappingCacheKey());
 
         $deletedCount = count($staleTaxonIds);
-        $log('info', "Pruned {$deletedCount} WooCommerce category taxons that were not returned by lang=nl sync.");
+        $log('info', "Pruned {$deletedCount} WooCommerce category taxons that were not returned by lang=".$this->primaryLocale().' sync.');
 
         return $deletedCount;
     }
@@ -324,14 +402,11 @@ class OptimizedWooCommerceCategorySyncService
      */
     private function getExistingMappings(): Collection
     {
-        // Using once() for per-request memoization (Laravel's request-scoped cache)
-        return once(function () {
-            return WooCommerceCategoryTaxonMapping::query()
-                ->where('source', self::SOURCE)
-                ->with('taxon') // Eager load to prevent N+1 queries
-                ->get()
-                ->keyBy('woocommerce_category_id');
-        });
+        return $this->mappingsCache ??= WooCommerceCategoryTaxonMapping::query()
+            ->where('source', self::SOURCE)
+            ->with('taxon') // Eager load to prevent N+1 queries
+            ->get()
+            ->keyBy('woocommerce_category_id');
     }
 
     /**
@@ -389,8 +464,7 @@ class OptimizedWooCommerceCategorySyncService
         Collection $mappings,
         array &$stats,
         callable $log,
-        ?int $forcedParentId = null,
-        array $translationCache = []
+        ?int $forcedParentId = null
     ): void {
         $woocommerceCategoryId = (int) $category['id'];
         $slug = (string) $category['slug'];
@@ -419,7 +493,7 @@ class OptimizedWooCommerceCategorySyncService
             'meta_description' => $category['meta_description'] ?? null,
         ];
 
-        $englishCategory = $this->englishCategoryFor($category, $log);
+        $localizedCategories = $this->localizedCategoriesFor($category, $log);
 
         // If a parent was specified during import, include it
         if ($forcedParentId !== null) {
@@ -453,11 +527,10 @@ class OptimizedWooCommerceCategorySyncService
             $savedMapping->setRelation('taxon', $taxon);
             $mappings->put($woocommerceCategoryId, $savedMapping);
 
-            // Store the other-language siblings (e.g. English) as Translation rows.
-            $this->syncCategoryTranslations($taxon, $category, $translationCache, $log);
-
             $stats['created']++;
             $log('info', "Created taxon #{$taxon->id} for Woo category #{$woocommerceCategoryId} ({$category['name']})");
+
+            $this->syncTranslations($taxon, $localizedCategories);
 
             return;
         }
@@ -470,7 +543,7 @@ class OptimizedWooCommerceCategorySyncService
             || (string) ($mapping->slug ?? '') !== $slug;
 
         $taxonNeedsUpdate = $taxon->isDirty();
-        $translationNeedsUpdate = $this->englishTranslationNeedsUpdate($taxon, $englishCategory);
+        $translationNeedsUpdate = $this->translationsNeedUpdate($taxon, $localizedCategories);
 
         // Skip if nothing changed
         if (! $taxonNeedsUpdate && ! $mappingNeedsUpdate && ! $translationNeedsUpdate) {
@@ -502,116 +575,11 @@ class OptimizedWooCommerceCategorySyncService
         }
 
         if ($translationNeedsUpdate) {
-            $this->syncCategoryTranslations($taxon, $category, $translationCache, $log);
+            $this->syncTranslations($taxon, $localizedCategories);
         }
 
         $stats['updated']++;
         $log('info', "Updated taxon #{$taxon->id} for Woo category #{$woocommerceCategoryId} ({$category['name']})");
-    }
-
-    /**
-     * Store each non-primary language sibling of a category as a Translation row.
-     *
-     * The primary (Dutch) language lives in the taxon's base columns. For every
-     * other locale in the category's `translations` map, we look up the sibling
-     * category that was pre-fetched into $translationCache and write it as a
-     * Vanilo Translation (name, slug, fields[meta_*]) — the same structure the
-     * taxonomy admin editor reads/writes, including the editable per-locale slug.
-     *
-     * @param  \Vanilo\Category\Models\Taxon  $taxon  The freshly created/updated taxon
-     * @param  array  $category  Normalized primary-locale category data
-     * @param  array<string, array<int, array>>  $translationCache  [locale][wooId] => sibling
-     * @param  callable  $log  Logging callback
-     */
-    private function syncCategoryTranslations(
-        \Vanilo\Category\Models\Taxon $taxon,
-        array $category,
-        array $translationCache,
-        callable $log
-    ): void {
-        foreach ($category['translations'] ?? [] as $locale => $wooId) {
-            // The primary language already lives in the taxon's base columns.
-            if ($locale === self::PRIMARY_LOCALE) {
-                continue;
-            }
-
-            $sibling = $translationCache[$locale][(int) $wooId] ?? null;
-
-            // Sibling wasn't fetched (e.g. not returned by the API) — skip rather
-            // than write an empty translation.
-            if ($sibling === null) {
-                continue;
-            }
-
-            $this->writeTaxonTranslation($taxon, $locale, $sibling, $log);
-        }
-    }
-
-    /**
-     * Create or update a single Vanilo Translation row for a taxon.
-     *
-     * Translations are keyed by the canonical "taxon" morph alias. This service
-     * works with App\Models\Taxon (morph type "App\Models\Taxon"), so we resolve
-     * the configured Vanilo taxon model for the write to produce a row the admin
-     * and API actually read.
-     *
-     * @param  \Vanilo\Category\Models\Taxon  $taxon  The taxon being translated
-     * @param  string  $locale  Target locale (e.g. 'en')
-     * @param  array  $data  Normalized sibling category data for that locale
-     * @param  callable  $log  Logging callback
-     */
-    private function writeTaxonTranslation(
-        \Vanilo\Category\Models\Taxon $taxon,
-        string $locale,
-        array $data,
-        callable $log
-    ): void {
-        $name = (string) $data['name'];
-        $slug = (string) $data['slug'];
-
-        if ($locale === 'en') {
-            $slug = $this->uniqueEnglishTranslationSlug($taxon, $slug);
-        }
-        $fields = [
-            'meta_title' => $data['meta_title'] ?? null,
-            'meta_description' => $data['meta_description'] ?? null,
-        ];
-
-        // Resolve a Vanilo taxon instance (morph alias "taxon") for the same id
-        // without an extra query, so the translation is readable everywhere else.
-        $translatableClass = TaxonProxy::modelClass();
-        $translatable = (new $translatableClass)->forceFill(['id' => $taxon->id]);
-        $translatable->exists = true;
-
-        $translation = Translation::findByModel($translatable, $locale);
-
-        if ($translation === null) {
-            Translation::createForModel(
-                $translatable,
-                $locale,
-                array_merge(['name' => $name, 'slug' => $slug], $fields)
-            );
-            $log('info', "Created {$locale} translation for taxon #{$taxon->id} ({$name})");
-
-            return;
-        }
-
-        $existingFields = is_array($translation->fields) ? $translation->fields : [];
-        $unchanged = (string) $translation->name === $name
-            && (string) $translation->slug === $slug
-            && ($existingFields['meta_title'] ?? null) === $fields['meta_title']
-            && ($existingFields['meta_description'] ?? null) === $fields['meta_description'];
-
-        if ($unchanged) {
-            return;
-        }
-
-        $translation->update([
-            'name' => $name,
-            'slug' => $slug,
-            'fields' => $fields,
-        ]);
-        $log('info', "Updated {$locale} translation for taxon #{$taxon->id} ({$name})");
     }
 
     /**
@@ -683,10 +651,7 @@ class OptimizedWooCommerceCategorySyncService
      */
     private function ensureTaxonomyExists(array &$stats, callable $log): ?Taxonomy
     {
-        // Use once() to cache for this request
-        $taxonomy = once(function () {
-            return Taxonomy::query()->where('slug', self::TAXONOMY_SLUG)->first();
-        });
+        $taxonomy = Taxonomy::query()->where('slug', self::TAXONOMY_SLUG)->first();
 
         if ($taxonomy === null) {
             $taxonomy = Taxonomy::query()->create([
@@ -704,7 +669,7 @@ class OptimizedWooCommerceCategorySyncService
     /**
      * Fetch a single page of categories from WooCommerce API.
      *
-     * Only fetches Dutch categories to maintain single-language category structure.
+     * Only fetches primary-locale categories to maintain one local category identity.
      *
      * @param  int  $page  Page number
      * @param  int  $pageSize  Items per page
@@ -715,7 +680,7 @@ class OptimizedWooCommerceCategorySyncService
         $response = $this->makeApiRequest($this->categoriesEndpoint(), [
             'per_page' => $pageSize,
             'page' => $page,
-            'lang' => self::PRIMARY_LOCALE, // Primary (Dutch) categories → base columns
+            'lang' => $this->primaryLocale(),
         ]);
 
         if ($response->failed()) {
@@ -738,7 +703,7 @@ class OptimizedWooCommerceCategorySyncService
         return [
             'categories' => array_values(array_filter(
                 $normalizedCategories,
-                fn (array $category): bool => $this->isPrimaryDutchCategory($category)
+                fn (array $category): bool => $this->isPrimaryCategory($category)
             )),
             'raw_count' => count($categories),
         ];
@@ -747,7 +712,7 @@ class OptimizedWooCommerceCategorySyncService
     /**
      * Fetch a single category by ID from WooCommerce API.
      *
-     * Only fetches Dutch category data.
+     * Only fetches primary-locale category data.
      *
      * @param  int  $categoryId  WooCommerce category ID
      * @return array|null Normalized category data, or null if not found
@@ -755,7 +720,7 @@ class OptimizedWooCommerceCategorySyncService
     private function fetchSingleCategory(int $categoryId): ?array
     {
         $response = $this->makeApiRequest($this->categoriesEndpoint().'/'.$categoryId, [
-            'lang' => self::PRIMARY_LOCALE, // Primary (Dutch) category → base columns
+            'lang' => $this->primaryLocale(),
         ]);
 
         if ($response->failed()) {
@@ -776,11 +741,11 @@ class OptimizedWooCommerceCategorySyncService
 
         $category = $this->normalizeCategoryData($category);
 
-        if (! $this->isPrimaryDutchCategory($category)) {
-            $dutchCategoryId = (int) ($category['translations']['nl'] ?? 0);
+        if (! $this->isPrimaryCategory($category)) {
+            $primaryCategoryId = (int) ($category['translations'][$this->primaryLocale()] ?? 0);
 
-            if ($dutchCategoryId > 0 && $dutchCategoryId !== $categoryId) {
-                return $this->fetchSingleCategory($dutchCategoryId);
+            if ($primaryCategoryId > 0 && $primaryCategoryId !== $categoryId) {
+                return $this->fetchSingleCategory($primaryCategoryId);
             }
 
             return null;
@@ -815,105 +780,95 @@ class OptimizedWooCommerceCategorySyncService
     }
 
     /**
-     * WPML can still return a linked English category object even when lang=nl
-     * is requested by ID. Only the Dutch primary ID may create a local taxon.
+     * WPML can still return a translated category object when the primary locale
+     * is requested by ID. Only the primary ID may create a local taxon.
      *
      * @param  array<string, mixed>  $category
      */
-    private function isPrimaryDutchCategory(array $category): bool
+    private function isPrimaryCategory(array $category): bool
     {
         $translations = $category['translations'] ?? [];
+        $primaryLocale = $this->primaryLocale();
 
-        if (! is_array($translations) || ! isset($translations['nl'])) {
+        if (! is_array($translations) || ! isset($translations[$primaryLocale])) {
             return true;
         }
 
-        return (int) $translations['nl'] === (int) ($category['id'] ?? 0);
+        return (int) $translations[$primaryLocale] === (int) ($category['id'] ?? 0);
     }
 
-    /**
-     * Preload other-language category siblings into a cached locale-based structure.
-     *
-     * @return array<string, array<int, array>>
-     */
-    private function preloadSecondaryTranslations(array $categories, callable $log): array
+    private function preloadLocalizedCategories(array $categories, callable $log): void
     {
-        $this->preloadEnglishCategories($categories, $log);
+        foreach ($this->translationLocales() as $locale) {
+            $categoryIds = collect($categories)
+                ->map(fn (array $category): int => (int) ($category['translations'][$locale] ?? 0))
+                ->filter(fn (int $id): bool => $id > 0 && ! array_key_exists($id, $this->localizedCategoryCache[$locale] ?? []))
+                ->unique()
+                ->values()
+                ->all();
 
-        $cache = [
-            'en' => [],
-        ];
-
-        foreach ($this->englishCategoryCache as $id => $category) {
-            $cache['en'][(int) $id] = $category;
-        }
-
-        return $cache;
-    }
-
-    private function preloadEnglishCategories(array $categories, callable $log): void
-    {
-        $englishIds = collect($categories)
-            ->map(fn (array $category): int => (int) ($category['translations']['en'] ?? 0))
-            ->filter(fn (int $id): bool => $id > 0 && ! array_key_exists($id, $this->englishCategoryCache))
-            ->unique()
-            ->values()
-            ->all();
-
-        if ($englishIds === []) {
-            return;
-        }
-
-        $log('info', 'Batch-fetching '.count($englishIds).' linked English categories');
-
-        foreach (array_chunk($englishIds, self::MAX_PER_PAGE) as $ids) {
-            $response = $this->makeApiRequest($this->categoriesEndpoint(), [
-                'include' => implode(',', $ids),
-                'per_page' => count($ids),
-                'lang' => 'en',
-            ]);
-
-            if ($response->failed()) {
-                $log('warn', "Failed to preload linked English categories: {$response->status()} {$response->body()}");
-
+            if ($categoryIds === []) {
                 continue;
             }
 
-            $englishCategories = $response->json();
+            $log('info', 'Batch-fetching '.count($categoryIds)." linked {$locale} categories");
 
-            if (! is_array($englishCategories)) {
-                continue;
-            }
+            foreach (array_chunk($categoryIds, self::MAX_PER_PAGE) as $ids) {
+                $response = $this->makeApiRequest($this->categoriesEndpoint(), [
+                    'include' => implode(',', $ids),
+                    'per_page' => count($ids),
+                    'lang' => $locale,
+                ]);
 
-            foreach ($englishCategories as $category) {
-                if (is_array($category)) {
-                    $normalized = $this->normalizeCategoryData($category);
-                    $this->englishCategoryCache[(int) $normalized['id']] = $normalized;
+                if ($response->failed()) {
+                    $log('warn', "Failed to preload linked {$locale} categories: {$response->status()} {$response->body()}");
+
+                    continue;
+                }
+
+                $localizedCategories = $response->json();
+
+                if (! is_array($localizedCategories)) {
+                    continue;
+                }
+
+                foreach ($localizedCategories as $category) {
+                    if (is_array($category)) {
+                        $normalized = $this->normalizeCategoryData($category);
+                        $this->localizedCategoryCache[$locale][(int) $normalized['id']] = $normalized;
+                    }
                 }
             }
         }
     }
 
-    private function englishCategoryFor(array $category, callable $log): ?array
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function localizedCategoriesFor(array $category, callable $log): array
     {
-        $englishCategoryId = (int) ($category['translations']['en'] ?? 0);
+        return collect($this->translationLocales())
+            ->mapWithKeys(function (string $locale) use ($category, $log): array {
+                $categoryId = (int) ($category['translations'][$locale] ?? 0);
 
-        if ($englishCategoryId <= 0) {
-            return null;
-        }
+                if ($categoryId <= 0) {
+                    return [$locale => $category];
+                }
 
-        if (array_key_exists($englishCategoryId, $this->englishCategoryCache)) {
-            return $this->englishCategoryCache[$englishCategoryId];
-        }
+                if (array_key_exists($categoryId, $this->localizedCategoryCache[$locale] ?? [])) {
+                    return [$locale => $this->localizedCategoryCache[$locale][$categoryId] ?? $category];
+                }
 
-        $englishCategory = $this->fetchCategoryByIdAndLocale($englishCategoryId, 'en');
-        $this->englishCategoryCache[$englishCategoryId] = $englishCategory;
+                $localizedCategory = $this->fetchCategoryByIdAndLocale($categoryId, $locale);
+                $this->localizedCategoryCache[$locale][$categoryId] = $localizedCategory;
 
-        if ($englishCategory === null) {
-            $log('warn', "Linked English category #{$englishCategoryId} was not found.");
-        }
+                if ($localizedCategory === null) {
+                    $log('warn', "Linked {$locale} category #{$categoryId} was not found; using the primary locale fallback.");
+                }
 
-        return $englishCategory;
+                return [$locale => $localizedCategory ?? $category];
+            })
+            ->all();
     }
 
     private function fetchCategoryByIdAndLocale(int $categoryId, string $locale): ?array
@@ -941,53 +896,64 @@ class OptimizedWooCommerceCategorySyncService
         return $this->normalizeCategoryData($category);
     }
 
-    private function englishTranslationNeedsUpdate(Model $taxon, ?array $englishCategory): bool
+    /**
+     * @param  array<string, array<string, mixed>>  $localizedCategories
+     */
+    private function translationsNeedUpdate(Model $taxon, array $localizedCategories): bool
     {
-        if ($englishCategory === null) {
-            return false;
+        foreach ($localizedCategories as $locale => $localizedCategory) {
+            $translation = $this->findTaxonTranslation($taxon, $locale);
+            $fields = $this->translationFields($localizedCategory);
+            $existingFields = is_array($translation?->fields) ? $translation->fields : [];
+
+            if ($translation === null
+                || (string) $translation->getName() !== (string) $localizedCategory['name']
+                || (string) $translation->getSlug() !== $this->uniqueTranslationSlug($taxon, (string) $localizedCategory['slug'], $locale)
+                || collect($fields)->contains(fn (mixed $value, string $field): bool => ($existingFields[$field] ?? null) !== $value)) {
+                return true;
+            }
         }
 
-        $translation = $this->findTaxonTranslation($taxon, 'en');
-
-        return $translation === null
-            || (string) $translation->getName() !== (string) $englishCategory['name']
-            || (string) $translation->getSlug() !== $this->uniqueEnglishTranslationSlug($taxon, (string) $englishCategory['slug']);
+        return false;
     }
 
-    private function syncEnglishTranslation(Model $taxon, ?array $englishCategory): void
+    /**
+     * @param  array<string, array<string, mixed>>  $localizedCategories
+     */
+    private function syncTranslations(Model $taxon, array $localizedCategories): void
     {
-        if ($englishCategory === null) {
-            return;
-        }
+        foreach ($localizedCategories as $locale => $localizedCategory) {
+            $payload = [
+                'name' => (string) $localizedCategory['name'],
+                'slug' => $this->uniqueTranslationSlug($taxon, (string) $localizedCategory['slug'], $locale),
+                'fields' => $this->translationFields($localizedCategory),
+            ];
 
-        $payload = [
-            'name' => (string) $englishCategory['name'],
-            'slug' => $this->uniqueEnglishTranslationSlug($taxon, (string) $englishCategory['slug']),
+            Translation::query()->updateOrCreate(
+                [
+                    'translatable_type' => self::TAXON_MORPH_TYPE,
+                    'translatable_id' => $taxon->getKey(),
+                    'language' => $locale,
+                ],
+                $payload,
+            );
+        }
+    }
+
+    /**
+     * @return array{description: string|null, excerpt: string|null, meta_title: string|null, meta_description: string|null}
+     */
+    private function translationFields(array $category): array
+    {
+        return [
+            'description' => $category['description'] ?: null,
+            'excerpt' => $category['description'] ?: null,
+            'meta_title' => $category['meta_title'] ?? null,
+            'meta_description' => $category['meta_description'] ?? null,
         ];
-
-        $translation = $this->findTaxonTranslation($taxon, 'en');
-
-        if ($translation !== null) {
-            $translation->update([
-                'name' => $payload['name'],
-                'slug' => $payload['slug'],
-                'fields' => $translation->fields ?? [],
-            ]);
-
-            return;
-        }
-
-        Translation::query()->create([
-            'translatable_type' => self::TAXON_MORPH_TYPE,
-            'translatable_id' => $taxon->getKey(),
-            'language' => 'en',
-            'name' => $payload['name'],
-            'slug' => $payload['slug'],
-            'fields' => [],
-        ]);
     }
 
-    private function uniqueEnglishTranslationSlug(Model $taxon, string $slug): string
+    private function uniqueTranslationSlug(Model $taxon, string $slug, string $locale): string
     {
         $baseSlug = trim($slug);
 
@@ -995,7 +961,7 @@ class OptimizedWooCommerceCategorySyncService
             $baseSlug = 'category-'.$taxon->getKey();
         }
 
-        if (! $this->englishTranslationSlugExistsForAnotherTaxon($taxon, $baseSlug)) {
+        if (! $this->translationSlugExistsForAnotherTaxon($taxon, $baseSlug, $locale)) {
             return $baseSlug;
         }
 
@@ -1003,7 +969,7 @@ class OptimizedWooCommerceCategorySyncService
         $candidate = "{$baseSlug}-{$suffix}";
         $attempt = 2;
 
-        while ($this->englishTranslationSlugExistsForAnotherTaxon($taxon, $candidate)) {
+        while ($this->translationSlugExistsForAnotherTaxon($taxon, $candidate, $locale)) {
             $candidate = "{$baseSlug}-{$suffix}-{$attempt}";
             $attempt++;
         }
@@ -1011,11 +977,11 @@ class OptimizedWooCommerceCategorySyncService
         return $candidate;
     }
 
-    private function englishTranslationSlugExistsForAnotherTaxon(Model $taxon, string $slug): bool
+    private function translationSlugExistsForAnotherTaxon(Model $taxon, string $slug, string $locale): bool
     {
         return Translation::query()
             ->where('translatable_type', self::TAXON_MORPH_TYPE)
-            ->where('language', 'en')
+            ->where('language', $locale)
             ->where('slug', $slug)
             ->where('translatable_id', '!=', $taxon->getKey())
             ->exists();
@@ -1028,6 +994,22 @@ class OptimizedWooCommerceCategorySyncService
             ->where('translatable_id', $taxon->getKey())
             ->where('language', $locale)
             ->first();
+    }
+
+    private function primaryLocale(): string
+    {
+        return self::PRIMARY_LOCALE;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function translationLocales(): array
+    {
+        return collect(ApiLocale::supported())
+            ->reject(fn (string $locale): bool => $locale === $this->primaryLocale())
+            ->values()
+            ->all();
     }
 
     /**
@@ -1058,6 +1040,7 @@ class OptimizedWooCommerceCategorySyncService
             'page_size' => $pageSize,
             'fetched' => 0,
             'fetched_ids' => [],
+            'fetched_parent_ids' => [],
             'has_more' => false,
             'taxonomy_created' => 0,
             'taxonomy_updated' => 0,
@@ -1128,6 +1111,11 @@ class OptimizedWooCommerceCategorySyncService
      */
     private function extractMetaTitle(array $category): ?string
     {
+        $yoastTitle = trim((string) data_get($category, 'yoast_head_json.og_title', ''));
+        if ($yoastTitle !== '') {
+            return $yoastTitle;
+        }
+
         foreach ($category['meta_data'] ?? [] as $meta) {
             if (($meta['key'] ?? null) === '_yoast_wpseo_title') {
                 $value = trim((string) ($meta['value'] ?? ''));
@@ -1144,6 +1132,11 @@ class OptimizedWooCommerceCategorySyncService
      */
     private function extractMetaDescription(array $category): ?string
     {
+        $yoastDescription = trim((string) data_get($category, 'yoast_head_json.og_description', ''));
+        if ($yoastDescription !== '') {
+            return $yoastDescription;
+        }
+
         foreach ($category['meta_data'] ?? [] as $meta) {
             if (($meta['key'] ?? null) === '_yoast_wpseo_metadesc') {
                 $value = trim((string) ($meta['value'] ?? ''));
