@@ -2,7 +2,6 @@
 
 namespace App\Exports;
 
-use App\Models\MasterProduct;
 use App\Models\Product;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -12,11 +11,9 @@ class ProductExport implements FromCollection, WithHeadings
 {
     protected static array $configKeys = [
         'brand',
-        'material_code',
         'finishing',
         'glue',
         'druktype',
-        'printer_type',
         'meta_width',
         'meta_height',
         'kern',
@@ -39,7 +36,6 @@ class ProductExport implements FromCollection, WithHeadings
             'Price' => 'Price',
             'Original Price' => 'Original Price',
             'Stock' => 'Stock',
-            'Material' => 'Material',
             'Categories' => 'Categories',
             'Description' => 'Description',
             'Excerpt' => 'Excerpt',
@@ -55,10 +51,6 @@ class ProductExport implements FromCollection, WithHeadings
             'Meta Fields' => 'Meta Fields',
             'Main Image' => 'Main Image',
             'Gallery Images' => 'Gallery Images',
-            'Variant SKU' => 'Variant SKU',
-            'Variant Price' => 'Variant Price',
-            'Variant Stock' => 'Variant Stock',
-            'Variant Attributes' => 'Variant Attributes',
             'Created At' => 'Created At',
             'Updated At' => 'Updated At',
         ],
@@ -75,7 +67,6 @@ class ProductExport implements FromCollection, WithHeadings
             'Price' => 'Prijs',
             'Original Price' => 'Originele prijs',
             'Stock' => 'Voorraad',
-            'Material' => 'Materiaal',
             'Categories' => 'Categorieën',
             'Description' => 'Beschrijving',
             'Excerpt' => 'Samenvatting',
@@ -91,10 +82,6 @@ class ProductExport implements FromCollection, WithHeadings
             'Meta Fields' => 'Metavelden',
             'Main Image' => 'Hoofdafbeelding',
             'Gallery Images' => 'Galerij-afbeeldingen',
-            'Variant SKU' => 'Variant SKU',
-            'Variant Price' => 'Variant prijs',
-            'Variant Stock' => 'Variant voorraad',
-            'Variant Attributes' => 'Variant attributen',
             'Created At' => 'Aangemaakt op',
             'Updated At' => 'Bijgewerkt op',
         ],
@@ -108,19 +95,13 @@ class ProductExport implements FromCollection, WithHeadings
 
     public function collection(): Collection
     {
-        [$simpleIds, $variableIds] = $this->parseRowIds();
+        $simpleIds = $this->parseRowIds();
 
         $rows = collect();
 
         $simpleProducts = $this->querySimpleProducts($simpleIds);
         foreach ($simpleProducts as $product) {
             $rows->push($this->mapSimpleProduct($product));
-        }
-
-        $variableProducts = $this->queryVariableProducts($variableIds);
-        foreach ($variableProducts as $master) {
-            $variants = $master->variants->whereNull('deleted_at');
-            $rows->push($this->mapVariableProduct($master, $variants));
         }
 
         return $rows;
@@ -152,7 +133,6 @@ class ProductExport implements FromCollection, WithHeadings
             $this->h('Price'),
             $this->h('Original Price'),
             $this->h('Stock'),
-            $this->h('Material'),
             $this->h('Categories'),
         ]);
 
@@ -180,10 +160,6 @@ class ProductExport implements FromCollection, WithHeadings
             $this->h('Meta Fields'),
             $this->h('Main Image'),
             $this->h('Gallery Images'),
-            $this->h('Variant SKU'),
-            $this->h('Variant Price'),
-            $this->h('Variant Stock'),
-            $this->h('Variant Attributes'),
             $this->h('Created At'),
             $this->h('Updated At'),
         ]);
@@ -197,26 +173,19 @@ class ProductExport implements FromCollection, WithHeadings
     protected function parseRowIds(): array
     {
         if ($this->rowIds === null) {
-            return [null, null];
+            return null;
         }
 
         $simpleIds = [];
-        $variableIds = [];
-
         foreach ($this->rowIds as $rowId) {
             [$type, $id] = explode('_', $rowId, 2);
 
             if ($type === 'simple') {
                 $simpleIds[] = (int) $id;
-            } else {
-                $variableIds[] = (int) $id;
             }
         }
 
-        return [
-            empty($simpleIds) ? [] : $simpleIds,
-            empty($variableIds) ? [] : $variableIds,
-        ];
+        return empty($simpleIds) ? [] : $simpleIds;
     }
 
     protected function querySimpleProducts(?array $ids): Collection
@@ -224,31 +193,6 @@ class ProductExport implements FromCollection, WithHeadings
         $query = Product::query()
             ->whereNull('deleted_at')
             ->with(['metas', 'taxons', 'media']);
-
-        if ($this->locale !== 'en') {
-            $query->with('translations');
-        }
-
-        if ($ids !== null) {
-            if (empty($ids)) {
-                return collect();
-            }
-            $query->whereIn('id', $ids);
-        }
-
-        return $query->get();
-    }
-
-    protected function queryVariableProducts(?array $ids): Collection
-    {
-        $query = MasterProduct::query()
-            ->whereNull('deleted_at')
-            ->with([
-                'metas',
-                'taxons',
-                'media',
-                'variants' => fn ($q) => $q->with('propertyValues.property'),
-            ]);
 
         if ($this->locale !== 'en') {
             $query->with('translations');
@@ -282,7 +226,6 @@ class ProductExport implements FromCollection, WithHeadings
             $product->price,
             $product->original_price,
             $product->stock,
-            '',
             $this->resolveCategories($product),
         ]);
 
@@ -300,57 +243,8 @@ class ProductExport implements FromCollection, WithHeadings
             $this->resolveMetaFields($product->metas),
             $this->resolveMainImage($product),
             $this->resolveGalleryImages($product),
-            '', // Variant SKU
-            '', // Variant Price
-            '', // Variant Stock
-            '', // Variant Attributes
             $product->created_at?->format('d/m/Y H:i:s'),
             $product->updated_at?->format('d/m/Y H:i:s'),
-        ]);
-    }
-
-    protected function mapVariableProduct(MasterProduct $master, Collection $variants): array
-    {
-        $t = $this->getTranslatedFields($master);
-
-        $row = [
-            $master->id,
-            'Variable',
-        ];
-
-        $row = array_merge($row, $this->buildTranslatableColumns($master, $t, ['name', 'title', 'subtitle', 'slug']));
-
-        $row = array_merge($row, [
-            '', // SKU (master level)
-            $master->article_number ?? '',
-            $this->resolveState($master->state),
-            $master->price,
-            $master->original_price,
-            '', // Stock (master level)
-            '',
-            $this->resolveCategories($master),
-        ]);
-
-        $row = array_merge($row, $this->buildTranslatableColumns($master, $t, ['description', 'excerpt', 'content'], true));
-
-        return array_merge($row, [
-            $master->packaging_unit,
-            $master->delivery_dates_in_stock,
-            $master->delivery_dates_no_stock,
-            $master->packing_group,
-            $master->weight,
-            $master->height,
-            $master->width,
-            $master->length,
-            $this->resolveMetaFields($master->metas),
-            $this->resolveMainImage($master),
-            $this->resolveGalleryImages($master),
-            $variants->pluck('sku')->filter()->join(' | '),
-            $variants->pluck('price')->filter()->join(' | '),
-            $variants->pluck('stock')->join(' | '),
-            $variants->map(fn ($v) => $this->resolveVariantAttributes($v))->filter()->join(' | '),
-            $master->created_at?->format('d/m/Y H:i:s'),
-            $master->updated_at?->format('d/m/Y H:i:s'),
         ]);
     }
 

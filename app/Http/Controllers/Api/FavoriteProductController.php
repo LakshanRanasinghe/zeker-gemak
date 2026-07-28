@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\ProductResource;
 use App\Models\FavoriteProduct;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,9 +19,7 @@ class FavoriteProductController extends Controller
             ->get();
 
         $products = $favorites->map(function (FavoriteProduct $favorite) {
-            $model = $favorite->product_type === 'variable'
-                ? MasterProduct::with(['translations', 'taxons', 'metas', 'variants.propertyValues.property'])->find($favorite->product_id)
-                : Product::with(['translations', 'taxons', 'metas'])->find($favorite->product_id);
+            $model = Product::with(['translations', 'taxons', 'metas'])->find($favorite->product_id);
 
             return $model;
         })->filter();
@@ -62,10 +59,8 @@ class FavoriteProductController extends Controller
         return response()->json(['is_favorite' => $exists]);
     }
 
-    protected function resolveProduct(string $type, int $id): Product|MasterProduct
+    protected function resolveProduct(string $type, int $id): Product
     {
-        $model = $type === 'variable' ? MasterProduct::findOrFail($id) : Product::findOrFail($id);
-
-        return $model;
+        return Product::findOrFail($id);
     }
 }

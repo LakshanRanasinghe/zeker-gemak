@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\MasterProduct;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Vanilo\Translation\Models\Translation;
@@ -9,12 +8,10 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Product::disableSearchSyncing();
-    MasterProduct::disableSearchSyncing();
 });
 
 afterEach(function () {
     Product::enableSearchSyncing();
-    MasterProduct::enableSearchSyncing();
 });
 
 it('returns Dutch and English localized SEO fields in Product API response', function () {
@@ -89,33 +86,4 @@ it('falls back to legacy database columns or translation table when localized SE
         ->assertJsonPath('data.meta_description', 'Translated English SEO Desc')
         ->assertJsonPath('data.meta_title_en', 'Translated English SEO Title')
         ->assertJsonPath('data.meta_description_en', 'Translated English SEO Desc');
-});
-
-it('returns Dutch and English localized SEO fields for Master Product API response', function () {
-    /** @var MasterProduct $masterProduct */
-    $masterProduct = MasterProduct::create([
-        'name' => 'Master Variable Product',
-        'title' => 'Master Variable Product',
-        'slug' => 'master-variable-product',
-        'meta_title_nl' => 'Master Dutch SEO Title',
-        'meta_title_en' => 'Master English SEO Title',
-        'meta_description_nl' => 'Master Dutch SEO Desc',
-        'meta_description_en' => 'Master English SEO Desc',
-    ]);
-
-    // Dutch request
-    $this->getJson("/api/products/variable/{$masterProduct->id}")
-        ->assertOk()
-        ->assertJsonPath('data.meta_title', 'Master Dutch SEO Title')
-        ->assertJsonPath('data.meta_description', 'Master Dutch SEO Desc')
-        ->assertJsonPath('data.meta_title_nl', 'Master Dutch SEO Title')
-        ->assertJsonPath('data.meta_title_en', 'Master English SEO Title')
-        ->assertJsonPath('data.meta_description_nl', 'Master Dutch SEO Desc')
-        ->assertJsonPath('data.meta_description_en', 'Master English SEO Desc');
-
-    // English request
-    $this->getJson("/api/products/variable/{$masterProduct->id}?lang=en")
-        ->assertOk()
-        ->assertJsonPath('data.meta_title', 'Master English SEO Title')
-        ->assertJsonPath('data.meta_description', 'Master English SEO Desc');
 });

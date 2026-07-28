@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Your Password – Business Labels</title>
+    <title>Reset Your Password – {{ config('app.company.name') }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -258,7 +258,7 @@
                 </div>
 
                 <h1>Reset Your Password</h1>
-                <p>We received a request to reset the password<br>for your Business Labels account.</p>
+                <p>We received a request to reset the password<br>for your {{ config('app.company.name') }} account.</p>
             </div>
         </div>
 
@@ -304,11 +304,11 @@
         {{-- ── Footer ── --}}
         <div class="footer">
             <p>
-                &copy;&nbsp;{{ date('Y') }}&nbsp;Business&nbsp;Labels. All rights reserved.
+                &copy;&nbsp;{{ date('Y') }}&nbsp;{{ config('app.company.name') }}. All rights reserved.
                 <span class="dot"></span>
-                <a href="{{ $appUrl }}" target="_blank">businesslabels.nl</a>
+                <a href="{{ $appUrl }}" target="_blank">{{ config('app.company.website') }}</a>
                 <span class="dot"></span>
-                <a href="mailto:verkoop@businesslabels.nl">verkoop@businesslabels.nl</a>
+                <a href="mailto:{{ config('app.company.email') }}">{{ config('app.company.email') }}</a>
             </p>
         </div>
 

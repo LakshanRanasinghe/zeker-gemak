@@ -15,7 +15,7 @@ class StoreCustomerReviewRequest extends FormRequest
     {
         return [
             'product_id' => 'nullable|integer',
-            'product_type' => 'nullable|in:simple,variable',
+            'product_type' => 'nullable|in:simple',
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'rating' => 'required|integer|between:1,5',

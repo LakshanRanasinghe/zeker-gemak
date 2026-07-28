@@ -1,9 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use App\Models\MasterProduct;
-use App\Models\Material;
-use App\Models\Post;
 use App\Models\Product;
 
 return [
@@ -33,12 +30,7 @@ return [
      * Each model should implement the Explored interface and define mappableAs().
      */
     'indexes' => [
-        'bbnl_products' => Product::class,
-        'bbnl_master_products' => MasterProduct::class,
-        'bbnl_materials' => Material::class,
-        'bbnl_printers' => Post::class,
-        // GroupProduct uses the same Scout index as Product (catalog_products_simple).
-        // It is indexed there automatically via Scout; no separate Explorer entry needed.
+        'zeker_gemak_products' => Product::class,
     ],
 
     /*

@@ -6,10 +6,9 @@ use App\Contracts\CatalogSearchGateway;
 use App\Enums\OrderStatus;
 use App\Jobs\SendOrderEmailsJob;
 use App\Listeners\UpdateSalesFigures;
-use App\Models\MasterProduct;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
 use App\Models\User;
@@ -26,8 +25,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Konekt\Customer\Contracts\Customer as CustomerContract;
+use Laravel\Scout\ModelObserver;
 use Vanilo\Category\Contracts\Taxon as TaxonContract;
-use Vanilo\MasterProduct\Contracts\MasterProduct as MasterProductContract;
 use Vanilo\Order\Events\OrderWasCreated;
 use Vanilo\Order\Models\OrderProxy;
 use Vanilo\Product\Contracts\Product as ProductContract;
@@ -93,6 +93,11 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->concord->registerModel(
+            CustomerContract::class,
+            Customer::class
+        );
+
+        $this->app->concord->registerModel(
             TaxonContract::class,
             Taxon::class
         );
@@ -107,68 +112,23 @@ class AppServiceProvider extends ServiceProvider
             OrderItem::class
         );
 
-        $this->app->concord->registerModel(
-            MasterProductContract::class,
-            MasterProduct::class
-        );
-
         Relation::morphMap([
             'product' => Product::class,
             'taxon' => Taxon::class,
             'order' => Order::class,
             'order_item' => OrderItem::class,
-            'master_product' => MasterProduct::class,
         ]);
     }
 
     protected function configureSearchIndexInvalidation(): void
     {
-        $deletedProductDependencies = [];
-        $deletedPrinterDependencies = [];
         $deletedTaxonDependencies = [];
 
-        Product::saved(function (Product $product): void {
-            app(SearchIndexInvalidator::class)->reindexForProduct($product);
-        });
-
-        Product::deleting(function (Product $product) use (&$deletedProductDependencies): void {
-            $deletedProductDependencies[$product->getKey()] = [
-                'printer_ids' => $product->printers()->pluck('posts.id')->all(),
-            ];
-        });
-
-        Product::deleted(function (Product $product) use (&$deletedProductDependencies): void {
-            $dependencies = $deletedProductDependencies[$product->getKey()] ?? null;
-            unset($deletedProductDependencies[$product->getKey()]);
-
-            if ($dependencies === null) {
+        Taxon::saved(function (Taxon $taxon): void {
+            if (ModelObserver::syncingDisabledFor(Product::class)) {
                 return;
             }
 
-            $invalidator = app(SearchIndexInvalidator::class);
-            $invalidator->reindexPrinters($dependencies['printer_ids']);
-        });
-
-        Post::saved(function (Post $post): void {
-            if ($post->post_type === 'printer') {
-                app(SearchIndexInvalidator::class)->reindexForPrinter($post);
-            }
-        });
-
-        Post::deleting(function (Post $post) use (&$deletedPrinterDependencies): void {
-            if ($post->post_type === 'printer') {
-                $deletedPrinterDependencies[$post->getKey()] = $post->products()->pluck('products.id')->all();
-            }
-        });
-
-        Post::deleted(function (Post $post) use (&$deletedPrinterDependencies): void {
-            if ($post->post_type === 'printer') {
-                app(SearchIndexInvalidator::class)->reindexProducts($deletedPrinterDependencies[$post->getKey()] ?? []);
-                unset($deletedPrinterDependencies[$post->getKey()]);
-            }
-        });
-
-        Taxon::saved(function (Taxon $taxon): void {
             app(SearchIndexInvalidator::class)->reindexForTaxons([$taxon->getKey()]);
         });
 
@@ -179,7 +139,6 @@ class AppServiceProvider extends ServiceProvider
 
             $deletedTaxonDependencies[$taxon->getKey()] = [
                 'product_ids' => $rows->whereIn('model_type', [morph_type_of(Product::class), Product::class])->pluck('model_id')->all(),
-                'master_product_ids' => $rows->whereIn('model_type', [morph_type_of(MasterProduct::class), MasterProduct::class])->pluck('model_id')->all(),
             ];
         });
 
@@ -193,7 +152,6 @@ class AppServiceProvider extends ServiceProvider
 
             app(SearchIndexInvalidator::class)->reindexTaxonAssignmentTargets(
                 $dependencies['product_ids'],
-                $dependencies['master_product_ids'],
             );
         });
 

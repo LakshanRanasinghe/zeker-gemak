@@ -42,7 +42,10 @@ return [
     |
     */
 
-    'queue' => env('SCOUT_QUEUE', false),
+    'queue' => env('SCOUT_QUEUE', true) ? [
+        'connection' => env('SCOUT_QUEUE_CONNECTION'),
+        'queue' => env('SCOUT_QUEUE_NAME', 'scout'),
+    ] : false,
 
     /*
     |--------------------------------------------------------------------------
@@ -55,7 +58,7 @@ return [
     |
     */
 
-    'after_commit' => false,
+    'after_commit' => true,
 
     /*
     |--------------------------------------------------------------------------

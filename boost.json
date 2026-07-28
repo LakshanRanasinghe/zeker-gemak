@@ -2,7 +2,7 @@
     "agents": [
         "copilot",
         "codex",
-        "gemini"
+        "antigravity"
     ],
     "cloud": true,
     "guidelines": true,

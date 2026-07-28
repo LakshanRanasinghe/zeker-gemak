@@ -3,9 +3,6 @@
 namespace App\Http\Resources\Api;
 
 use App\Models\GroupProduct;
-use App\Models\MasterProduct;
-use App\Models\Post;
-use App\Models\Product;
 use App\Support\LocalizedModelValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -48,7 +45,7 @@ class ProductResource extends JsonResource
             'meta_description_nl' => $this->resource->meta_description_nl,
             'meta_description_en' => $this->resource->meta_description_en,
             'slug' => $this->translatedString('slug', $this->resource->slug),
-            'sku' => $this->resource instanceof MasterProduct ? null : $this->sku,
+            'sku' => $this->sku,
             'article_number' => $this->resource->article_number,
             'state' => $this->stateValue(),
             'price' => $this->priceValue(),
@@ -63,8 +60,6 @@ class ProductResource extends JsonResource
             'in_stock' => $this->stockValue() > 0,
             'excerpt' => $this->translatedString('excerpt', $this->resource->excerpt),
             'main_image' => $this->mainImageUrl(),
-            'material_id' => null,
-            'material' => null,
             'categories' => CategoryResource::collection($this->whenLoaded('taxons')),
             'meta' => $this->metaValues(),
             'properties' => $this->propertyValues(),
@@ -84,15 +79,9 @@ class ProductResource extends JsonResource
                 'length' => $this->length,
             ]),
             'gallery_images' => $this->when($detailRoute, $this->galleryImages()),
-            'variants' => $this->when(
-                $detailRoute && $this->resource instanceof MasterProduct,
-                $this->variantValues()
-            ),
             'discounts' => $this->resource->discount_group?->discounts,
             'up_sells' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('upSells')),
             'cross_sells' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('crossSells')),
-            'suitable_printers' => $this->when($detailRoute, fn () => $this->relatedProductSummaries('suitablePrinters')),
-            'printer_finder_id' => $this->when($detailRoute, fn () => $this->resolvePrinterFinderId()),
         ];
     }
 
@@ -108,7 +97,7 @@ class ProductResource extends JsonResource
 
     protected function relatedProductSummaries(string $relation): array
     {
-        if ($this->resource instanceof MasterProduct || ! method_exists($this->resource, $relation)) {
+        if (! method_exists($this->resource, $relation)) {
             return [];
         }
 
@@ -129,43 +118,8 @@ class ProductResource extends JsonResource
         })->values()->all();
     }
 
-    /**
-     * Resolve the product finder printer (Post) linked to this product via the
-     * "Printer Url" property, so the storefront can load compatible consumables.
-     */
-    protected function resolvePrinterFinderId(): ?int
-    {
-        if ($this->resource instanceof MasterProduct || $this->resource instanceof GroupProduct) {
-            return null;
-        }
-
-        $slug = method_exists($this->resource, 'getRawOriginal')
-            ? $this->resource->getRawOriginal('slug')
-            : ($this->resource->slug ?? null);
-
-        if (! $slug) {
-            return null;
-        }
-
-        $url = rtrim((string) config('app.frontend_url'), '/').'/product/'.$slug.'/';
-
-        $id = Post::query()
-            ->where('post_type', 'printer')
-            ->whereHas('propertyValues', function ($query) use ($url) {
-                $query->where('property_values.value', $url)
-                    ->whereHas('property', fn ($property) => $property->where('slug', 'printer-url'));
-            })
-            ->value('id');
-
-        return $id !== null ? (int) $id : null;
-    }
-
     protected function productType(): string
     {
-        if ($this->resource instanceof MasterProduct) {
-            return 'variable';
-        }
-
         if ($this->resource instanceof GroupProduct) {
             return 'group_product';
         }
@@ -179,9 +133,7 @@ class ProductResource extends JsonResource
             return '/api/group-products/'.(int) $this->resource->getKey();
         }
 
-        $type = $this->resource instanceof MasterProduct ? 'variable' : 'simple';
-
-        return '/api/products/'.$type.'/'.(int) $this->resource->getKey();
+        return '/api/products/simple/'.(int) $this->resource->getKey();
     }
 
     protected function apiPathBySlug(): string
@@ -192,9 +144,7 @@ class ProductResource extends JsonResource
             return '/api/group-products/slug/'.$slug;
         }
 
-        $type = $this->resource instanceof MasterProduct ? 'variable' : 'simple';
-
-        return '/api/products/'.$type.'/slug/'.$slug;
+        return '/api/products/simple/slug/'.$slug;
     }
 
     protected function titleValue(): string
@@ -216,20 +166,6 @@ class ProductResource extends JsonResource
 
     protected function stockValue(): float
     {
-        if ($this->resource instanceof MasterProduct) {
-            $apiStock = $this->resource->getAttribute('api_stock');
-
-            if ($apiStock !== null) {
-                return (float) $apiStock;
-            }
-
-            if ($this->resource->relationLoaded('variants')) {
-                return (float) $this->resource->variants->sum('stock');
-            }
-
-            return (float) $this->resource->variants()->sum('stock');
-        }
-
         if ($this->resource instanceof GroupProduct) {
             return (float) $this->resource->computed_stock;
         }
@@ -301,41 +237,6 @@ class ProductResource extends JsonResource
         }
 
         return LocalizedModelValue::string($model, $field, $fallback !== null ? (string) $fallback : null);
-    }
-
-    protected function variantValues(): array
-    {
-        if (! $this->resource instanceof MasterProduct || ! $this->resource->relationLoaded('variants')) {
-            return [];
-        }
-
-        return $this->resource->variants->map(function ($variant) {
-            $attributes = $variant->relationLoaded('propertyValues')
-                ? $variant->propertyValues->mapWithKeys(fn ($propertyValue) => [
-                    $propertyValue->property?->name ?? $propertyValue->property?->slug ?? 'attribute' => $propertyValue->title ?? $propertyValue->value,
-                ])->all()
-                : [];
-
-            $variantPrice = $variant->price !== null ? (float) $variant->price : null;
-            $vTaxDetails = $this->getTaxDetails($variant, $variantPrice);
-
-            return [
-                'id' => $variant->id,
-                'name' => $variant->name,
-                'sku' => $variant->sku,
-                'price' => $variantPrice,
-                'original_price' => $variant->original_price !== null ? (float) $variant->original_price : null,
-                'base_price' => $variantPrice,
-                'is_tax_inclusive' => $vTaxDetails['is_tax_inclusive'],
-                'tax_rate' => $vTaxDetails['tax_rate'],
-                'tax_amount' => $vTaxDetails['tax_amount'],
-                'display_price' => $vTaxDetails['display_price'],
-                'zone' => $vTaxDetails['zone'],
-                'stock' => (float) $variant->stock,
-                'in_stock' => (float) $variant->stock > 0,
-                'attributes' => $attributes,
-            ];
-        })->all();
     }
 
     protected function mainImageUrl(): ?string

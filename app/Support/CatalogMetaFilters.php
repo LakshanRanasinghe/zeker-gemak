@@ -28,13 +28,6 @@ class CatalogMetaFilters
                 'type' => 'multi_select',
                 'aliases' => ['glue', 'adhesive'],
             ],
-            'materiaal-code' => [
-                'query' => 'materiaal-code',
-                'label' => 'Material Code',
-                'config_key' => 'material_code',
-                'type' => 'multi_select',
-                'aliases' => ['material_code'],
-            ],
             'printmethode' => [
                 'query' => 'printmethode',
                 'label' => 'Print Method',

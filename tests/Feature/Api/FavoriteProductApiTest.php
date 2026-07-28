@@ -1,24 +1,22 @@
 <?php
 
 use App\Models\FavoriteProduct;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Product::disableSearchSyncing();
-    MasterProduct::disableSearchSyncing();
 
     $this->user = User::factory()->create();
-    \Laravel\Sanctum\Sanctum::actingAs($this->user);
+    Sanctum::actingAs($this->user);
 });
 
 afterEach(function () {
     Product::enableSearchSyncing();
-    MasterProduct::enableSearchSyncing();
 });
 
 it('adds a simple product to favorites', function () {
@@ -41,26 +39,6 @@ it('adds a simple product to favorites', function () {
         'user_id' => $this->user->id,
         'product_id' => $product->id,
         'product_type' => 'simple',
-    ]);
-});
-
-it('adds a variable product to favorites', function () {
-    $master = MasterProduct::create([
-        'name' => 'Fav Ribbon',
-        'title' => 'Fav Ribbon',
-        'slug' => 'fav-ribbon',
-        'price' => 20,
-        'state' => 'active',
-        'product_type' => 'variable',
-    ]);
-
-    $this->postJson("/api/user/favorite-products/variable/{$master->id}")
-        ->assertStatus(201);
-
-    $this->assertDatabaseHas('favorite_products', [
-        'user_id' => $this->user->id,
-        'product_id' => $master->id,
-        'product_type' => 'variable',
     ]);
 });
 

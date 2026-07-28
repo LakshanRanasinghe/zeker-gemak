@@ -22,9 +22,4 @@ class FavoriteProduct extends Model
     {
         return $this->belongsTo(Product::class);
     }
-
-    public function masterProduct(): BelongsTo
-    {
-        return $this->belongsTo(MasterProduct::class, 'product_id');
-    }
 }

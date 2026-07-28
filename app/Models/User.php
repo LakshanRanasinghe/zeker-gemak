@@ -7,6 +7,7 @@ use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -112,17 +113,17 @@ class User extends Authenticatable implements UserContract
         return $this->hasMany(OrderProxy::modelClass());
     }
 
+    public function customer(): HasOne
+    {
+        return $this->hasOne(Customer::class);
+    }
+
     /**
      * Get all favorite products for this user.
      */
     public function favoriteProducts(): HasMany
     {
         return $this->hasMany(FavoriteProduct::class);
-    }
-
-    public function favoritePrinters(): HasMany
-    {
-        return $this->hasMany(FavoriteProduct::class)->whereRaw('1 = 0');
     }
 
     /**

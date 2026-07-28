@@ -3,9 +3,6 @@
 use App\Concerns\HandlesWysiwygMedia;
 use App\Models\AiSetting;
 use App\Models\DiscountGroup;
-use App\Models\MasterProduct;
-
-use App\Models\Post;
 use App\Models\Product;
 use App\Models\ProductRelation;
 use App\Models\Taxon;
@@ -122,8 +119,6 @@ new class extends Component
 
     public array $cross_sell_ids = [];
 
-    public array $suitable_printer_ids = [];
-
     public $discount_search = '';
 
     public $discount_group_id = null;
@@ -204,12 +199,6 @@ new class extends Component
         [$type, $id] = explode('_', $productKey, 2);
         $type = trim($type);
         $id = trim($id);
-
-        if ($type === 'variable') {
-            $model = MasterProduct::with(['variants.propertyValues.property', 'propertyValues.property', 'metas', 'taxons.taxonomy'])->findOrFail($id);
-
-            return [$model, 'variable'];
-        }
 
         if ($type === 'simple') {
             $model = Product::with(['propertyValues.property', 'metas', 'taxons.taxonomy'])->findOrFail($id);
@@ -372,13 +361,8 @@ new class extends Component
 
         $this->selected_brand_taxons = $this->selectedBrandTaxonIdsForModel($model);
 
-        if ($type === 'variable') {
-            $this->populateAttributesAndVariations($model);
-        }
-
         $this->up_sell_ids = $this->loadRelatedIds($model, ProductRelation::TYPE_UPSELL);
         $this->cross_sell_ids = $this->loadRelatedIds($model, ProductRelation::TYPE_CROSSSELL);
-        $this->suitable_printer_ids = $this->loadRelatedIds($model, ProductRelation::TYPE_PRINTER);
 
         // Store main locale fields into translations array
         $this->storeFieldsToTranslations($this->mainLocale());
@@ -421,9 +405,8 @@ new class extends Component
     protected function rules()
     {
         $sameType = $this->editMode && $this->product_type === $this->originalProductType;
-        $table = $this->product_type === 'variable' ? 'master_products' : 'products';
-        $articleRule = Rule::unique($table, 'article_number');
-        $slugRule = Rule::unique($table, 'slug');
+        $articleRule = Rule::unique('products', 'article_number');
+        $slugRule = Rule::unique('products', 'slug');
         $skuRule = Rule::unique('products', 'sku');
 
         if ($sameType) {
@@ -433,16 +416,16 @@ new class extends Component
         }
 
         return [
-            'product_type' => 'required|string|in:simple,variable',
+            'product_type' => 'required|string|in:simple',
             'state' => 'required|string|in:active,draft,unavailable',
             'title' => 'required|string|max:255',
             'slug' => ['nullable', 'string', 'max:500', $slugRule],
             'subtitle' => 'nullable|string|max:255',
-            'sku' => ['exclude_if:product_type,variable', 'required', 'string', 'max:255', $skuRule],
+            'sku' => ['required', 'string', 'max:255', $skuRule],
             'article_number' => ['required', 'string', 'max:255', $articleRule],
-            'price' => 'exclude_if:product_type,variable|nullable|numeric|gt:0|max:99999999999',
-            'original_price' => 'exclude_if:product_type,variable|required|numeric|gt:0|max:99999999999',
-            'stock' => 'exclude_if:product_type,variable|required|integer|min:0',
+            'price' => 'nullable|numeric|gt:0|max:99999999999',
+            'original_price' => 'required|numeric|gt:0|max:99999999999',
+            'stock' => 'required|integer|min:0',
             'weight' => 'nullable|numeric|gte:0',
             'width' => 'nullable|numeric|gte:0',
             'height' => 'nullable|numeric|gte:0',
@@ -473,8 +456,6 @@ new class extends Component
             'up_sell_ids.*' => 'integer|exists:products,id',
             'cross_sell_ids' => 'nullable|array',
             'cross_sell_ids.*' => 'integer|exists:products,id',
-            'suitable_printer_ids' => 'nullable|array',
-            'suitable_printer_ids.*' => 'integer|exists:products,id',
             'product_properties' => 'nullable|array',
             'product_properties.*' => 'nullable|array',
             'product_properties.*.*' => 'nullable|string|max:255',
@@ -1054,12 +1035,11 @@ new class extends Component
 
         $metaData = collect($validated)->only(config('products.meta_fields'))->toArray();
 
-        $typeChanged = $this->editMode && $this->product_type !== $this->originalProductType;
-        $isUpdate = $this->editMode && ! $typeChanged;
+        $isUpdate = $this->editMode;
 
         [$oldModel, $oldWysiwygIds] = $this->captureOldModelState();
 
-        $productToAttachMedia = $this->product_type === 'simple' ? $this->saveSimpleProduct($validated, $metaData, $isUpdate) : $this->saveVariableProduct($validated, $metaData, $isUpdate);
+        $productToAttachMedia = $this->saveSimpleProduct($validated, $metaData, $isUpdate);
 
         // Sync translations for all non-main locales
         foreach ($this->otherLocales() as $locale) {
@@ -1097,10 +1077,6 @@ new class extends Component
             $this->syncTranslationForLocale($productToAttachMedia, $localeData, $locale);
         }
 
-        if ($typeChanged && $oldModel) {
-            $this->migrateMedia($oldModel, $productToAttachMedia);
-        }
-
         $this->uploadMedia($productToAttachMedia);
 
         $productToAttachMedia->taxons()->sync($this->selected_taxons);
@@ -1116,10 +1092,6 @@ new class extends Component
 
         $productToAttachMedia->searchable();
 
-        if ($typeChanged && $oldModel) {
-            $this->deleteOldProduct($oldModel);
-        }
-
         $this->cleanupRemovedWysiwygMedia($oldWysiwygIds);
 
         $this->dispatch('ai-clear-snapshot');
@@ -1130,7 +1102,7 @@ new class extends Component
         return $this->redirect(route('products.index'), navigate: true);
     }
 
-    protected function syncProductProperties(Product|MasterProduct $product): void
+    protected function syncProductProperties(Product $product): void
     {
         if ($this->product_properties === []) {
             return;
@@ -1182,7 +1154,7 @@ new class extends Component
         }
     }
 
-    protected function syncProductBrandProperties(Product|MasterProduct $product): void
+    protected function syncProductBrandProperties(Product $product): void
     {
         $brandProperty = Property::query()->firstOrCreate(
             ['slug' => 'brand'],
@@ -1248,7 +1220,7 @@ new class extends Component
             ->implode(', ');
     }
 
-    protected function selectedBrandTaxonIdsForModel(Product|MasterProduct $model): array
+    protected function selectedBrandTaxonIdsForModel(Product $model): array
     {
         $assignedIds = $model->taxons
             ->filter(fn ($taxon) => $this->taxonBelongsTo($taxon, 'Brands'))
@@ -1321,18 +1293,6 @@ new class extends Component
 
 
 
-    #[Computed]
-    public function printers()
-    {
-        $printers = Post::printer()->where('status', 'published')->orderBy('title')->get();
-
-        if ($this->usesMainLocale()) {
-            return $printers;
-        }
-
-        return $printers->map(fn ($printer) => $this->getTranslatedModel($printer));
-    }
-
     protected function localizedTaxonTree($taxon)
     {
         $localizedTaxon = $this->getTranslatedModel($taxon);
@@ -1403,11 +1363,8 @@ new class extends Component
         $allowed = $this->relatableProducts->pluck('id')->all();
         $upsells = array_values(array_intersect(array_map('intval', $this->up_sell_ids), $allowed));
         $crosssells = array_values(array_intersect(array_map('intval', $this->cross_sell_ids), $allowed));
-        $printers = array_values(array_intersect(array_map('intval', $this->suitable_printer_ids), $allowed));
-
         $model->syncProductRelations(ProductRelation::TYPE_UPSELL, $upsells);
         $model->syncProductRelations(ProductRelation::TYPE_CROSSSELL, $crosssells);
-        $model->syncProductRelations(ProductRelation::TYPE_PRINTER, $printers);
     }
 
     #[Computed]
@@ -1564,132 +1521,6 @@ new class extends Component
         return $product;
     }
 
-    protected function saveVariableProduct(array $validated, array $metaData, bool $isUpdate): MasterProduct
-    {
-        if ($isUpdate) {
-            $masterProduct = MasterProduct::findOrFail($this->productId);
-            $masterProduct->update($validated);
-        } else {
-            $masterProduct = MasterProduct::create($validated);
-        }
-
-        $this->syncMeta($masterProduct, $metaData);
-
-        $propertyValueMap = $this->syncProperties($masterProduct, $isUpdate);
-        $this->syncVariants($masterProduct, $propertyValueMap, $isUpdate);
-
-        return $masterProduct;
-    }
-
-    protected function syncProperties(MasterProduct $masterProduct, bool $isUpdate): array
-    {
-        $propertyValueMap = [];
-
-        foreach ($this->product_attributes as $attr) {
-            $propertyName = trim($attr['name']);
-
-            if (empty($propertyName)) {
-                continue;
-            }
-
-            $property = Property::firstOrCreate(['slug' => Str::slug($propertyName)], ['name' => $propertyName, 'type' => 'text']);
-
-            $values = array_filter(array_map('trim', explode(',', $attr['values'])));
-
-            foreach ($values as $val) {
-                $propertyValueMap[$propertyName][$val] = PropertyValue::firstOrCreate(['property_id' => $property->id, 'value' => Str::slug($val)], ['title' => $val]);
-            }
-        }
-
-        if ($isUpdate) {
-            $masterProduct->propertyValues()->detach();
-        }
-
-        foreach ($propertyValueMap as $values) {
-            foreach ($values as $pv) {
-                $masterProduct->addPropertyValue($pv);
-            }
-        }
-
-        return $propertyValueMap;
-    }
-
-    protected function syncVariants(MasterProduct $masterProduct, array $propertyValueMap, bool $isUpdate): void
-    {
-        if ($isUpdate) {
-            $this->updateExistingVariants($masterProduct, $propertyValueMap);
-        } else {
-            $this->createNewVariants($masterProduct, $propertyValueMap);
-        }
-    }
-
-    protected function updateExistingVariants(MasterProduct $masterProduct, array $propertyValueMap): void
-    {
-        $existingVariantIds = $masterProduct->variants()->pluck('id')->toArray();
-        $keptVariantIds = [];
-
-        foreach ($this->variations as $variationData) {
-            $variantSku = $this->resolveVariantSku($variationData);
-
-            if (! empty($variationData['id']) && in_array($variationData['id'], $existingVariantIds)) {
-                $variant = $masterProduct->variants()->findOrFail($variationData['id']);
-                $variant->update([
-                    'sku' => $variantSku,
-                    'price' => ! empty($variationData['price']) ? $variationData['price'] : null,
-                    'stock' => $variationData['stock'] ?? 0,
-                ]);
-                $variant->propertyValues()->detach();
-                $keptVariantIds[] = $variant->id;
-            } else {
-                $variant = $masterProduct->createVariant([
-                    'sku' => $variantSku,
-                    'price' => ! empty($variationData['price']) ? $variationData['price'] : null,
-                    'stock' => $variationData['stock'] ?? 0,
-                ]);
-                $keptVariantIds[] = $variant->id;
-            }
-
-            $this->attachPropertyValuesToVariant($variant, $variationData, $propertyValueMap);
-        }
-
-        $removedIds = array_diff($existingVariantIds, $keptVariantIds);
-
-        if (! empty($removedIds)) {
-            $masterProduct->variants()->whereIn('id', $removedIds)->delete();
-        }
-    }
-
-    protected function createNewVariants(MasterProduct $masterProduct, array $propertyValueMap): void
-    {
-        foreach ($this->variations as $variationData) {
-            $variant = $masterProduct->createVariant([
-                'sku' => $this->resolveVariantSku($variationData),
-                'price' => ! empty($variationData['price']) ? $variationData['price'] : null,
-                'stock' => $variationData['stock'] ?? 0,
-            ]);
-
-            $this->attachPropertyValuesToVariant($variant, $variationData, $propertyValueMap);
-        }
-    }
-
-    protected function resolveVariantSku(array $variationData): string
-    {
-        if (! empty($variationData['sku'])) {
-            return $variationData['sku'];
-        }
-
-        return $this->sku.'-'.collect($variationData['properties'])->map(fn ($v) => Str::slug($v))->implode('-');
-    }
-
-    protected function attachPropertyValuesToVariant($variant, array $variationData, array $propertyValueMap): void
-    {
-        foreach ($variationData['properties'] as $propName => $propValue) {
-            if (isset($propertyValueMap[$propName][$propValue])) {
-                $variant->addPropertyValue($propertyValueMap[$propName][$propValue]);
-            }
-        }
-    }
-
     protected function migrateMedia($from, $to): void
     {
         if (! $this->main_image) {
@@ -1727,11 +1558,6 @@ new class extends Component
     {
         $oldModel->metas()->delete();
 
-        if ($this->originalProductType === 'variable') {
-            $oldModel->variants->each(fn ($v) => $v->delete());
-            $oldModel->propertyValues()->detach();
-        }
-
         $oldModel->taxons()->detach();
         $oldModel->clearMediaCollection('main');
         $oldModel->clearMediaCollection('gallery');
@@ -1746,9 +1572,9 @@ new class extends Component
         return [$this->description, $this->content];
     }
 
-    protected function resolveEditingModel(): Product|MasterProduct
+    protected function resolveEditingModel(): Product
     {
-        return $this->originalProductType === 'variable' ? MasterProduct::findOrFail($this->productId) : Product::findOrFail($this->productId);
+        return Product::findOrFail($this->productId);
     }
 
     protected function syncMeta($model, array $metaData): void

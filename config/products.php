@@ -45,26 +45,11 @@ return [
         'citizen' => 'Citizen',
     ],
 
-    'material_code' => [
-        'pp_white' => 'PP White',
-        'pp_transparent' => 'PP Transparent',
-        'pe_white' => 'PE White',
-        'paper_white' => 'Paper White',
-        'paper_kraft' => 'Paper Kraft',
-    ],
-
     'druktype' => [
         'direct_thermal' => 'Direct Thermal',
         'thermal_transfer' => 'Thermal Transfer',
         'both' => 'Both',
         'inkjet' => 'Inkjet',
-    ],
-
-    'printer_type' => [
-        'desktop' => 'Desktop',
-        'industrial' => 'Industrial',
-        'mobile' => 'Mobile',
-        'wide_format' => 'Wide Format',
     ],
 
     'meta_width' => [
@@ -115,9 +100,9 @@ return [
 
     'merchant_feed' => [
         'storefront_url' => env('GOOGLE_MERCHANT_FEED_STOREFRONT_URL', 'https://bbnl-front.dayzsolutions.com'),
-        'title' => env('GOOGLE_MERCHANT_FEED_TITLE', 'Business Labels'),
-        'description' => env('GOOGLE_MERCHANT_FEED_DESCRIPTION', 'Google Merchant Center product feed - Business Labels'),
-        'brand' => env('GOOGLE_MERCHANT_FEED_BRAND', 'Business Labels'),
+        'title' => env('GOOGLE_MERCHANT_FEED_TITLE', 'Zeker Gemak'),
+        'description' => env('GOOGLE_MERCHANT_FEED_DESCRIPTION', 'Google Merchant Center product feed - Zeker Gemak'),
+        'brand' => env('GOOGLE_MERCHANT_FEED_BRAND', 'Zeker Gemak'),
     ],
 
     'jaritech' => [

@@ -3,7 +3,6 @@
 use App\Jobs\ExportProductsJob;
 use App\Models\AiSetting;
 use App\Models\Export;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Services\ProductContentGenerator;
 use App\Services\SkuGenerator;
@@ -82,8 +81,7 @@ new class extends Component {
             $hasProducts = false;
             foreach ($ids as $rowId) {
                 [$type, $id] = explode('_', $rowId, 2);
-                $modelClass = $type === 'variable' ? MasterProduct::class : Product::class;
-                if ($modelClass::whereNull('deleted_at')->where('id', (int) $id)->exists()) {
+                if ($type === 'simple' && Product::whereNull('deleted_at')->where('id', (int) $id)->exists()) {
                     $hasProducts = true;
                     break;
                 }
@@ -95,7 +93,7 @@ new class extends Component {
                 return;
             }
         } elseif ($all) {
-            $count = Product::whereNull('deleted_at')->count() + MasterProduct::whereNull('deleted_at')->count();
+            $count = Product::whereNull('deleted_at')->count();
             if ($count === 0) {
                 Flux::toast(__('No products to export.'), variant: 'warning');
 

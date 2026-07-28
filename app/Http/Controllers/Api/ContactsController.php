@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Mail\CallbackRequestAdmin;
 use App\Mail\ContactRequestAdmin;
 use App\Mail\CustomMadeRequestAdmin;
-use App\Mail\IccProfileRequestAdmin;
-use App\Mail\RequestPrinterAdmin;
 use App\Mail\RecycleRequestAdmin;
 use Illuminate\Http\Request;
 use Log;
@@ -54,39 +52,6 @@ class ContactsController extends Controller
 
         return response()->json([
             'message' => 'Your request has been sent successfully.',
-        ]);
-    }
-
-    public function iccProfileRequest(Request $request)
-    {
-        $validated = $request->validate([
-            'printerModel' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'companyName' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:255',
-            'materialTitle' => 'nullable|string|max:255',
-        ]);
-
-        Mail::to(config('app.admin_emails'))->send(new IccProfileRequestAdmin($validated));
-
-        return response()->json([
-            'message' => 'Your ICC profile request has been sent successfully.',
-        ]);
-    }
-
-    public function requestPrinter(Request $request)
-    {
-        $validated = $request->validate([
-            'brand' => 'required|string|max:255',
-            'model' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'comments' => 'nullable|string',
-        ]);
-
-        Mail::to(config('app.admin_emails'))->send(new RequestPrinterAdmin($validated));
-
-        return response()->json([
-            'message' => 'Your printer request has been sent successfully.',
         ]);
     }
 

@@ -51,7 +51,6 @@ new class extends Component {
 
         if (!empty($updates)) {
             \Vanilo\Foundation\Models\Product::whereIn('id', $this->productIds)->update($updates);
-            \Vanilo\Foundation\Models\MasterProduct::whereIn('id', $this->productIds)->update($updates);
         }
 
         // Category syncing is a bit more complex (many-to-many), keep it simple for now or implement if strictly needed

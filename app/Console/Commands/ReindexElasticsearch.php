@@ -3,8 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\GroupProduct;
-use App\Models\MasterProduct;
-use App\Models\Post;
 use App\Models\Product;
 use Illuminate\Console\Command;
 
@@ -18,20 +16,18 @@ class ReindexElasticsearch extends Command
     protected $signature = 'app:reindex-elasticsearch 
                             {--flush : Only flush indexes without reimporting}
                             {--import : Only import without flushing}
-                            {--model=* : Specific models to reindex (Product, GroupProduct, MasterProduct, Post)}';
+                            {--model=* : Specific models to reindex (Product, GroupProduct)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Flush and reindex all Elasticsearch indexes (products, printers, etc.)';
+    protected $description = 'Flush and reindex product Elasticsearch indexes';
 
     private array $models = [
         'Product' => Product::class,
         'GroupProduct' => GroupProduct::class,
-        'MasterProduct' => MasterProduct::class,
-        'Post' => Post::class,
     ];
 
     /**
@@ -52,7 +48,7 @@ class ReindexElasticsearch extends Command
                 ->toArray();
 
         if (empty($modelsToProcess)) {
-            $this->error('No valid models specified. Available: Product, GroupProduct, MasterProduct, Post');
+            $this->error('No valid models specified. Available: Product, GroupProduct');
 
             return self::FAILURE;
         }

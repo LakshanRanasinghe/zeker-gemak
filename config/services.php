@@ -36,9 +36,14 @@ return [
     ],
 
     'woocommerce' => [
-        'base_url' => env('WC_BASE_URL', 'https://businesslabels.nl'),
+        'base_url' => env('WC_BASE_URL'),
         'key' => env('WC_KEY'),
         'secret' => env('WC_SECRET'),
+        'locale' => 'nl',
+        'connect_timeout' => (int) env('WC_CONNECT_TIMEOUT', 10),
+        'timeout' => (int) env('WC_TIMEOUT', 60),
+        'discount_groups_endpoint' => env('WC_DISCOUNT_GROUPS_ENDPOINT', '/wp-json/wp/v2/discount_group'),
+        'tax_class_map' => json_decode((string) env('WC_TAX_CLASS_MAP', '[]'), true) ?: [],
     ],
 
     'anthropic' => [

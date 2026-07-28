@@ -2,8 +2,6 @@
 
 use App\Contracts\CatalogSearchGateway;
 use App\Models\GroupProduct;
-use App\Models\MasterProduct;
-use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,12 +16,15 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Config::set('scout.driver', 'elastic');
-    Config::set('scout.prefix', 'business_labels_');
+    Config::set('scout.prefix', 'zeker_gemak_');
 
+    Product::disableSearchSyncing();
+    GroupProduct::disableSearchSyncing();
+});
+
+afterEach(function () {
     Product::enableSearchSyncing();
     GroupProduct::enableSearchSyncing();
-    MasterProduct::enableSearchSyncing();
-    Post::enableSearchSyncing();
 });
 
 function fakeCatalogSearchGateway(array $hits, ?int $total = null): object
@@ -55,12 +56,10 @@ function fakeCatalogSearchGateway(array $hits, ?int $total = null): object
     return $gateway;
 }
 
-function catalogHit(Product|MasterProduct $product, ?float $stock = null): array
+function catalogHit(Product $product, ?float $stock = null): array
 {
-    $productType = $product instanceof MasterProduct ? 'variable' : 'simple';
-    $stock ??= $product instanceof MasterProduct
-        ? (float) $product->variants()->sum('stock')
-        : (float) $product->stock;
+    $productType = 'simple';
+    $stock ??= (float) $product->stock;
 
     return [
         '_index' => $product->searchableAs(),
@@ -118,6 +117,7 @@ if (! function_exists('attachApiProductPropertyValues')) {
 }
 
 it('returns a unified product listing and applies category and meta filters', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -276,6 +276,7 @@ it('returns a product by type and id', function () {
 });
 
 it('returns a variable product by type and slug with variants', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
 
     $master = MasterProduct::create([
         'name' => 'Direct Thermal Roll',
@@ -302,6 +303,8 @@ it('returns a variable product by type and slug with variants', function () {
 });
 
 it('does not fall back to a different product type for detail lookups', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
+
     $simple = Product::create([
         'name' => 'Shared Slug Simple',
         'title' => 'Shared Slug Simple',
@@ -416,12 +419,15 @@ it('returns categories and filter options', function () {
         'breedte' => ['50'],
     ]);
 
-    $this->getJson('/api/categories')
+    $response = $this->getJson('/api/categories')
         ->assertOk()
         ->assertJsonPath('data.0.slug', 'catalog')
         ->assertJsonPath('data.0.categories.0.slug', 'labels')
         ->assertJsonPath('data.0.categories.0.main_image', $labels->fresh()->getFirstMediaUrl('main'))
         ->assertJsonPath('data.0.categories.0.image', $labels->fresh()->getFirstMediaUrl('main'));
+
+    expect($response->json('data.0.categories.0.main_image'))
+        ->toStartWith(config('app.url').'/storage/');
 
     $gateway = fakeCatalogSearchGateway([]);
 
@@ -506,17 +512,14 @@ it('returns localized api responses when a frontend language is provided', funct
         ->assertJsonPath('data.0.categories.0.slug', 'etiketten');
 
     expect(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
-        fn (array $clause) => ($clause['terms']['category_slugs_nl'] ?? null) === ['etiketten']
+        fn (array $clause) => ($clause['terms']['category_slugs_nl.keyword'] ?? null) === ['etiketten']
     ))->toBeTrue();
 
     $this->getJson('/api/products/simple/slug/verzendlabels?lang=nl')
         ->assertOk()
         ->assertJsonPath('data.title', 'Verzendlabels')
         ->assertJsonPath('data.slug', 'verzendlabels')
-        ->assertJsonPath('data.description', 'Nederlandse productbeschrijving.')
-        ->assertJsonPath('data.product_information', 'Shared product information')
-        ->assertJsonPath('data.make', 'Shared make')
-        ->assertJsonPath('data.material_information', 'Shared material information');
+        ->assertJsonPath('data.description', 'Nederlandse productbeschrijving.');
 
     $this->getJson('/api/categories')
         ->assertOk()
@@ -553,6 +556,8 @@ it('returns localized api responses when a frontend language is provided', funct
 });
 
 it('returns elastic search results for text queries', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
+
     $simple = Product::create([
         'name' => 'Scout Simple Label',
         'title' => 'Scout Simple Label',
@@ -602,7 +607,7 @@ it('returns elastic search results for text queries', function () {
         ->assertJsonPath('data.0.slug', 'scout-variable-ribbon');
 });
 
-it('includes canonical property fields in elastic search query so users can search by material code and print method', function () {
+it('includes retained canonical property fields in elastic search queries', function () {
     $product = Product::create([
         'name' => 'PE White Direct Thermal',
         'title' => 'PE White Direct Thermal',
@@ -616,11 +621,9 @@ it('includes canonical property fields in elastic search query so users can sear
         'product_type' => 'simple',
     ]);
     attachApiProductPropertyValues($product, [
-        'materiaal-code' => ['pe_white'],
         'printmethode' => ['direct_thermal'],
         'afwerking' => ['gloss'],
         'lijm' => ['permanent'],
-        'materiaal' => ['paper'],
         'detectie' => ['gap'],
     ]);
 
@@ -636,8 +639,6 @@ it('includes canonical property fields in elastic search query so users can sear
     $searchFields = data_get($gateway->payloads[0], 'body.query.bool.must.0.multi_match.fields');
     expect($searchFields)
         ->toContain('catalog_brand^2')
-        ->toContain('catalog_material_code^2')
-        ->toContain('catalog_material^2')
         ->toContain('compatible_brands')
         ->toContain('properties.printmethode')
         ->toContain('properties.afwerking')
@@ -648,7 +649,7 @@ it('includes canonical property fields in elastic search query so users can sear
         ->not->toContain('properties.merken');
 });
 
-it('normalizes catalog facet fields in elastic product payloads', function () {
+it('normalizes retained catalog facet fields in elastic product payloads', function () {
 
     $product = Product::create([
         'name' => 'Canonical Facet Label',
@@ -663,8 +664,6 @@ it('normalizes catalog facet fields in elastic product payloads', function () {
 
     attachApiProductPropertyValues($product, [
         'brand' => ['Diamondlabels,'],
-        'materiaal-code' => ['DIA055'],
-        'materiaal' => ['DIA055', 'PE matte'],
         'merken' => ['Epson', 'Diamondlabels'],
     ]);
 
@@ -673,14 +672,14 @@ it('normalizes catalog facet fields in elastic product payloads', function () {
     $payload = $product->toSearchableArray();
 
     expect($payload['catalog_brand'])->toBe(['Diamondlabels'])
-        ->and($payload['catalog_material_code'])->toBe(['DIA055'])
-        ->and($payload['catalog_material'])->toBe(['PE matte'])
         ->and($payload['compatible_brands'])->toBe(['Epson'])
         ->and($payload)->not->toHaveKeys(['make', 'material_title', 'material_slug', 'compatibility'])
         ->and($payload['properties'] ?? [])->not->toHaveKeys(['brand', 'materiaal-code', 'materiaal', 'merken']);
 });
 
 it('promotes product brands into catalog brand for every product index type', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
+
     $product = Product::create([
         'name' => 'Brand Facet Label',
         'title' => 'Brand Facet Label',
@@ -801,10 +800,10 @@ it('uses elastic catalog search for full product filtering when the elastic driv
 
     expect($gateway->payloads)->toHaveCount(1)
         ->and($gateway->payloads[0]['index'])->toBe([
-            'business_labels_catalog_products_simple',
+            'zeker_gemak_catalog_products_simple',
         ])
         ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
-            fn (array $clause) => ($clause['terms']['category_slugs_nl'] ?? null) === ['labels']
+            fn (array $clause) => ($clause['terms']['category_slugs_nl.keyword'] ?? null) === ['labels']
         ))->toBeTrue()
         ->and(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
             fn (array $clause) => ($clause['terms']['properties.afwerking.keyword'] ?? null) === ['glossy']
@@ -855,7 +854,7 @@ it('filters catalog products by localized category path when the URL contains pa
         ->assertOk();
 
     expect(collect(data_get($gateway->payloads[0], 'body.query.bool.filter'))->contains(
-        fn (array $clause) => ($clause['terms']['category_paths_nl'] ?? null) === ['labels-en-tickets/accessoires']
+        fn (array $clause) => ($clause['terms']['category_paths_nl.keyword'] ?? null) === ['labels-en-tickets/accessoires']
     ))->toBeTrue();
 });
 
@@ -887,6 +886,7 @@ it('returns a 503 response when the elastic catalog backend is unavailable', fun
 });
 
 it('defines stable scout indexes and property-based elastic payloads for product search models', function () {
+    $this->markTestSkipped('Master products and printer posts were removed from zeker-gemak.');
 
     $taxonomy = Taxonomy::create([
         'name' => 'Catalog',
@@ -1069,6 +1069,8 @@ it('defines stable scout indexes and property-based elastic payloads for product
 });
 
 it('indexes printer documents with category ids slugs and paths from compatible products', function (): void {
+    $this->markTestSkipped('Printer posts were removed from zeker-gemak.');
+
     $taxonomy = Taxonomy::create(['name' => 'Catalog', 'slug' => 'catalog']);
     $labels = Taxon::create([
         'name' => 'Etiketten',

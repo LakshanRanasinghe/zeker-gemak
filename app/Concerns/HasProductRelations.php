@@ -24,16 +24,6 @@ trait HasProductRelations
         return $this->relatedProductsOfType(ProductRelation::TYPE_CROSSSELL);
     }
 
-    /**
-     * Printers (catalog products) this product is suitable for.
-     *
-     * Used on ink/label detail pages to render the "Suitable printers" block.
-     */
-    public function suitablePrinters(): BelongsToMany
-    {
-        return $this->relatedProductsOfType(ProductRelation::TYPE_PRINTER);
-    }
-
     public function syncProductRelations(string $type, array $productIds): void
     {
         $this->productRelations()->where('relation_type', $type)->delete();

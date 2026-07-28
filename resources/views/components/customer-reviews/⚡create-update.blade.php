@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\CustomerReview;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Models\User;
 use Flux\Flux;
@@ -72,9 +71,7 @@ new class extends Component
             $this->editMode = true;
 
             if ($this->product_id) {
-                $product = $this->product_type === 'variable'
-                    ? MasterProduct::find($this->product_id)
-                    : Product::find($this->product_id);
+                $product = Product::find($this->product_id);
 
                 if ($product) {
                     $this->selected_product_label = $this->labelFor($product, $this->product_type);
@@ -109,8 +106,6 @@ new class extends Component
         $term = trim($this->product_search);
 
         $simpleQuery = Product::query()->latest('id');
-        $masterQuery = MasterProduct::query()->latest('id');
-
         if ($term !== '') {
             $simpleQuery->where(function ($q) use ($term) {
                 $q->where('name', 'like', "%{$term}%")
@@ -118,10 +113,6 @@ new class extends Component
                     ->orWhere('article_number', 'like', "%{$term}%");
             });
 
-            $masterQuery->where(function ($q) use ($term) {
-                $q->where('name', 'like', "%{$term}%")
-                    ->orWhere('article_number', 'like', "%{$term}%");
-            });
         }
 
         $simple = $simpleQuery->take(8)->get()->map(fn ($p) => [
@@ -131,31 +122,22 @@ new class extends Component
             'sku' => $p->sku,
         ]);
 
-        $master = $masterQuery->take(8)->get()->map(fn ($p) => [
-            'id' => $p->id,
-            'type' => 'variable',
-            'label' => $this->labelFor($p, 'variable'),
-            'sku' => $p->article_number,
-        ]);
-
-        $this->product_results = $simple->concat($master)->take(12)->values()->all();
+        $this->product_results = $simple->take(12)->values()->all();
     }
 
     protected function labelFor($product, string $type): string
     {
         $title = method_exists($product, 'title') ? $product->title() : ($product->name ?? '');
         $title = $title !== '' ? $title : ('#'.$product->id);
-        $sku = $type === 'variable' ? ($product->article_number ?? null) : ($product->sku ?? null);
-        $badge = $type === 'variable' ? 'Variable' : 'Simple';
+        $sku = $product->sku ?? null;
+        $badge = 'Simple';
 
         return $title.($sku ? ' · '.$sku : '').' — '.$badge;
     }
 
     public function selectProduct(int $id, string $type): void
     {
-        $exists = $type === 'variable'
-            ? MasterProduct::whereKey($id)->exists()
-            : Product::whereKey($id)->exists();
+        $exists = $type === 'simple' && Product::whereKey($id)->exists();
 
         if (! $exists) {
             $this->addError('product_id', __('Selected product was not found.'));
@@ -279,7 +261,7 @@ new class extends Component
             'source' => 'required|string|max:50',
             'status' => 'required|in:pending,approved,rejected',
             'product_id' => 'nullable|integer',
-            'product_type' => 'nullable|in:simple,variable',
+            'product_type' => 'nullable|in:simple',
         ];
 
         if ($this->link_to_customer) {
@@ -297,10 +279,8 @@ new class extends Component
             $validated['product_id'] = null;
             $validated['product_type'] = null;
         } else {
-            $type = $validated['product_type'] ?: 'simple';
-            $exists = $type === 'variable'
-                ? MasterProduct::whereKey($validated['product_id'])->exists()
-                : Product::whereKey($validated['product_id'])->exists();
+            $type = 'simple';
+            $exists = Product::whereKey($validated['product_id'])->exists();
 
             if (! $exists) {
                 $this->addError('product_id', __('Selected product was not found.'));
@@ -554,8 +534,8 @@ new class extends Component
                                                 @endif
                                             </div>
                                             <span
-                                                class="text-xs px-2 py-0.5 rounded-full border {{ $result['type'] === 'variable' ? 'border-indigo-200 text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800' : 'border-zinc-200 text-zinc-600 bg-zinc-50 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600' }} shrink-0">
-                                                {{ $result['type'] === 'variable' ? __('Variable') : __('Simple') }}
+                                                class="text-xs px-2 py-0.5 rounded-full border border-zinc-200 text-zinc-600 bg-zinc-50 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600 shrink-0">
+                                                {{ __('Simple') }}
                                             </span>
                                         </button>
                                     @endforeach

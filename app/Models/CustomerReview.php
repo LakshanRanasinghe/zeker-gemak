@@ -52,20 +52,13 @@ class CustomerReview extends Model implements HasMedia
         return $this->belongsTo(Product::class, 'product_id');
     }
 
-    public function masterProduct(): BelongsTo
-    {
-        return $this->belongsTo(MasterProduct::class, 'product_id');
-    }
-
     public function getProductModelAttribute(): ?Model
     {
         if (! $this->product_id) {
             return null;
         }
 
-        return $this->product_type === 'variable'
-            ? MasterProduct::find($this->product_id)
-            : Product::find($this->product_id);
+        return Product::find($this->product_id);
     }
 
     public function avatarUrl(): ?string

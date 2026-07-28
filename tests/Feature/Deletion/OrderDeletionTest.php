@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\OrderController;
 use App\Livewire\OrderTable;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Models\User;
 use Flux\Flux;
@@ -27,7 +26,6 @@ beforeEach(function () {
     Config::set('scout.driver', 'null');
 
     Product::disableSearchSyncing();
-    MasterProduct::disableSearchSyncing();
 
     Country::create([
         'id' => 'US',
@@ -39,7 +37,6 @@ beforeEach(function () {
 
 afterEach(function () {
     Product::enableSearchSyncing();
-    MasterProduct::enableSearchSyncing();
 });
 
 function order_test_address(string $name, string $address): Address

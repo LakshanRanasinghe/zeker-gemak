@@ -4,38 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Vanilo\Properties\Models\PropertyValue;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DiscountGroup extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
+        'woocommerce_id',
         'name',
         'discounts',
+        'tiers',
+        'is_active',
+        'synced_at',
     ];
 
-    protected static function booted(): void
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
+    protected function casts(): array
     {
-        static::saved(function (DiscountGroup $discountGroup) {
-            // Detach all products currently associated with this group
-            $discountGroup->products()->update(['discount_group_id' => null]);
-
-            // Find products matching the new materiaal-code and associate them
-            $propertyValue = PropertyValue::findByPropertyAndValue('materiaal-code', $discountGroup->name);
-
-            if ($propertyValue) {
-                $productIds = Product::whereHas('propertyValues', function ($query) use ($propertyValue) {
-                    $query->where('property_values.id', $propertyValue->id);
-                })->pluck('products.id');
-
-                if ($productIds->isNotEmpty()) {
-                    Product::whereIn('id', $productIds)->update(['discount_group_id' => $discountGroup->id]);
-                }
-            }
-        });
-
-        static::deleting(function (DiscountGroup $discountGroup) {
-            $discountGroup->products()->update(['discount_group_id' => null]);
-        });
+        return [
+            'woocommerce_id' => 'integer',
+            'discounts' => 'array',
+            'tiers' => 'array',
+            'is_active' => 'boolean',
+            'synced_at' => 'datetime',
+        ];
     }
 
     public function products(): HasMany

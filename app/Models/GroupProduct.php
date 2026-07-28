@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use JeroenG\Explorer\Application\Explored;
 use JeroenG\Explorer\Application\SearchableFields;
 use Laravel\Scout\Builder as ScoutBuilder;
+use Laravel\Scout\ModelObserver;
 use Laravel\Scout\Searchable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -120,7 +121,10 @@ class GroupProduct extends Model implements Explored, HasMedia, SearchableFields
 
         if ($this->exists) {
             $this->saveQuietly();
-            $this->searchable();
+
+            if (! ModelObserver::syncingDisabledFor($this)) {
+                $this->searchable();
+            }
         }
     }
 

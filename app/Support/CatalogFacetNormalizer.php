@@ -27,20 +27,6 @@ class CatalogFacetNormalizer
      * @param  array<string, array<int, array{value: string, title: string}>>  $propertyValues
      * @return array<int, string>
      */
-    public static function materialCodes(array $propertyValues): array
-    {
-        return static::propertyValues($propertyValues, [
-            'materiaal-code',
-            'materiaal_code',
-            'material-code',
-            'material_code',
-        ]);
-    }
-
-    /**
-     * @param  array<string, array<int, array{value: string, title: string}>>  $propertyValues
-     * @return array<int, string>
-     */
     public static function productBrands(array $propertyValues, mixed $fallback = []): array
     {
         $brands = static::propertyValues($propertyValues, [
@@ -67,39 +53,6 @@ class CatalogFacetNormalizer
             ->reject(fn (string $value): bool => in_array(Str::lower($value), $productBrands, true))
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  iterable<mixed>|mixed  $values
-     * @return array<int, string>
-     */
-    public static function materialNames(mixed $values): array
-    {
-        return collect(static::values($values))
-            ->reject(fn (string $value): bool => static::looksLikeMaterialCode($value))
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<string, array<int, array{value: string, title: string}>>  $propertyValues
-     * @return array<int, string>
-     */
-    public static function materialNamesFromProperties(array $propertyValues): array
-    {
-        return static::materialNames(static::propertyValues($propertyValues, [
-            'materiaal',
-            'material',
-            'material-type',
-            'material_type',
-        ]));
-    }
-
-    protected static function looksLikeMaterialCode(string $value): bool
-    {
-        $compact = Str::upper(str_replace([' ', '_', '-'], '', $value));
-
-        return (bool) preg_match('/^(DIA\d+[A-Z0-9]*|\d+[A-Z]?|[A-Z]{2,}\d+[A-Z0-9]*)$/', $compact);
     }
 
     /**

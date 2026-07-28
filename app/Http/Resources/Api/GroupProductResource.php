@@ -38,8 +38,6 @@ class GroupProductResource extends JsonResource
             'in_stock' => $this->computedStockValue() > 0,
             'excerpt' => $this->translatedString('excerpt', $this->resource->excerpt),
             'main_image' => $this->mainImageUrl(),
-            'material_id' => null,
-            'material' => null,
             'categories' => CategoryResource::collection($this->whenLoaded('taxons')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

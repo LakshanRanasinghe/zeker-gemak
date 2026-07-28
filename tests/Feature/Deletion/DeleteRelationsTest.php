@@ -32,14 +32,12 @@ beforeEach(function () {
     Config::set('scout.driver', 'null');
 
     Product::disableSearchSyncing();
-    MasterProduct::disableSearchSyncing();
 
     Storage::fake('public');
 });
 
 afterEach(function () {
     Product::enableSearchSyncing();
-    MasterProduct::enableSearchSyncing();
 });
 
 function deletion_test_attachment_html(int $wysiwygMediaId): string
@@ -105,6 +103,8 @@ it('deletes post-like entries with translations, wysiwyg media, and meta rows', 
     string $method,
     string $postType,
 ) {
+    $this->markTestSkipped('Posts, pages, and printers were removed from zeker-gemak.');
+
     $contentMedia = WysiwygMedia::create();
     $excerptMedia = WysiwygMedia::create();
 
@@ -201,6 +201,8 @@ it('deletes simple products and removes all confirmed owned relations', function
 });
 
 it('deletes master products and cleans master and variant owned relations', function () {
+    $this->markTestSkipped('Master products were removed from zeker-gemak.');
+
     $channel = deletion_test_channel('Wholesale');
     $video = deletion_test_video('master-product-video');
     $variantVideo = deletion_test_video('variant-video');
@@ -276,7 +278,7 @@ it('deletes master products and cleans master and variant owned relations', func
     expect(Media::query()->where('model_type', $variantMorph)->where('model_id', $variant->id)->exists())->toBeFalse();
 });
 
-it('deletes discount groups and nulls related products before removing the group', function () {
+it('soft deletes discount groups without rewriting product assignments', function () {
     $discountGroup = DiscountGroup::create([
         'name' => 'Bulk Discounts',
         'discounts' => json_encode(['10' => 5]),
@@ -296,7 +298,7 @@ it('deletes discount groups and nulls related products before removing the group
     deletion_test_call_component_method(DiscountGroups::class, 'deleteDiscountGroup', $discountGroup->id);
 
     expect(DiscountGroup::find($discountGroup->id))->toBeNull();
-    expect($product->refresh()->discount_group_id)->toBeNull();
+    expect($product->refresh()->discount_group_id)->toBe($discountGroup->id);
 });
 
 it('deletes taxonomies through confirmed relations and cleans taxon side effects', function () {

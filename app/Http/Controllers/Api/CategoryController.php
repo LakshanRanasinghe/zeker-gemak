@@ -6,13 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\CategoryGroupResource;
 use App\Http\Resources\Api\CategoryResource;
 use App\Http\Resources\Api\ProductResource;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Models\Taxon;
 use App\Services\ProductCatalogService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Vanilo\Foundation\Models\Taxonomy;
 
 class CategoryController extends Controller
@@ -70,7 +68,7 @@ class CategoryController extends Controller
         $taxon = Taxon::where('slug', $slug)->firstOrFail();
         $perPage = (int) $request->query('per_page', 15);
 
-        $simple = Product::query()
+        $products = Product::query()
             ->with('activeWarrantyOptions')
             ->withCount('activeWarrantyOptions')
             ->whereHas('taxons', function ($q) use ($taxon) {
@@ -78,24 +76,7 @@ class CategoryController extends Controller
             })
             ->paginate($perPage);
 
-        $master = MasterProduct::whereHas('taxons', function ($q) use ($taxon) {
-            $q->where('taxons.id', $taxon->id);
-        })->paginate($perPage);
-
-        $mergedItems = $simple->getCollection()->merge($master->getCollection())->sortByDesc('created_at')->values();
-
-        $paginated = new LengthAwarePaginator(
-            $mergedItems,
-            $simple->total() + $master->total(),
-            $perPage * 2,
-            $simple->currentPage(),
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
-
-        return ProductResource::collection($paginated)->additional([
+        return ProductResource::collection($products)->additional([
             'category' => new CategoryResource($taxon),
         ]);
     }

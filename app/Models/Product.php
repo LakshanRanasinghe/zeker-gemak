@@ -31,6 +31,8 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
     use Searchable;
 
     protected $casts = [
+        'woocommerce_id' => 'integer',
+        'synced_at' => 'datetime',
         'packaging_unit' => 'integer',
         'delivery_dates_no_stock' => 'integer',
         'delivery_dates_in_stock' => 'integer',
@@ -223,11 +225,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             ?? (string) ($this->getRawOriginal('ext_title') ?? $this->getRawOriginal('name') ?? '');
     }
 
-    public function printers()
-    {
-        return $this->hasMany(Post::class, 'id', 'id')->whereRaw('1 = 0');
-    }
-
     public function groupProducts()
     {
         return $this->belongsToMany(GroupProduct::class, 'group_product_items', 'product_id', 'group_product_id')
@@ -242,7 +239,7 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
 
     public function shouldBeSearchable(): bool
     {
-        return true;
+        return $this->getRawOriginal('state') === 'active' && $this->getRawOriginal('deleted_at') === null;
     }
 
     public function searchableAs(): string
@@ -264,8 +261,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'sku^2',
             'article_number^2',
             'catalog_brand^2',
-            'catalog_material_code^2',
-            'catalog_material^2',
             'compatible_brands',
             'properties.printmethode',
             'properties.afwerking',
@@ -331,8 +326,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                         'keyword' => ['type' => 'keyword'],
                     ],
                 ],
-                'catalog_material_code' => ['type' => 'keyword'],
-                'catalog_material' => ['type' => 'keyword'],
                 'compatible_brands' => ['type' => 'keyword'],
                 'excerpt' => ['type' => 'text'],
                 'excerpt_locales' => ['type' => 'text'],
@@ -415,8 +408,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                         'breadcrumb_slugs_en' => ['type' => 'keyword'],
                     ],
                 ],
-                'printer_ids' => ['type' => 'integer'],
-
                 'meta_title' => ['type' => 'text'],
                 'meta_description' => ['type' => 'text'],
                 'meta_title_nl' => ['type' => 'text'],
@@ -444,7 +435,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
         $mainImage = $this->mainImageUrlForSearch();
         $propertyValues = $this->propertyValuesForSearch();
         $indexablePropertyValues = $this->indexablePropertyValuesForSearch($propertyValues);
-        $catalogMaterial = CatalogFacetNormalizer::materialNamesFromProperties($propertyValues);
         $properties = $this->propertyTextsForSearch($indexablePropertyValues);
         $propertyNumbers = $this->propertyNumbersForSearch($propertyValues);
         $catalogBrand = CatalogFacetNormalizer::productBrands($propertyValues, null);
@@ -495,8 +485,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'dimensions' => $this->dimensionsForSearch(),
             'main_image' => $mainImage,
             'catalog_brand' => $catalogBrand,
-            'catalog_material_code' => CatalogFacetNormalizer::materialCodes($propertyValues),
-            'catalog_material' => $catalogMaterial,
             'compatible_brands' => CatalogFacetNormalizer::compatibleBrands($propertyValues, $catalogBrand),
             'category_ids' => $this->taxonIdsForSearch(),
             'category_slugs' => $this->taxonSlugsForSearch(),
@@ -508,7 +496,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             'category_titles_nl' => $this->localizedTaxonValuesForSearch('name', 'nl'),
             'category_titles_en' => $this->localizedTaxonValuesForSearch('name', 'en'),
             'categories' => $this->categoriesHierarchyForSearch(),
-            'printer_ids' => $this->printerIdsForSearch(),
             'properties' => $properties,
             'property_numbers' => $propertyNumbers,
 
@@ -592,11 +579,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
                 'brand',
                 'merk',
                 'product-brand',
-                'materiaal-code',
-                'material-code',
-                'materiaal',
-                'material',
-                'material-type',
                 'merken',
                 'marks',
                 'compatible-brands',
@@ -706,11 +688,6 @@ class Product extends BaseProductModel implements BaseProductContract, Explored,
             ->map(fn ($ancestor) => LocalizedModelValue::string($ancestor, 'slug', (string) $ancestor->slug, $locale))
             ->filter()
             ->implode('/');
-    }
-
-    protected function printerIdsForSearch(): array
-    {
-        return [];
     }
 
     protected function categoriesHierarchyForSearch(): array

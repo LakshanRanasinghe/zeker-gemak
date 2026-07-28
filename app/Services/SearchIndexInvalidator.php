@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\GroupProduct;
-use App\Models\MasterProduct;
-use App\Models\Post;
 use App\Models\Product;
 use App\Models\Taxon;
 use Illuminate\Database\Eloquent\Model;
@@ -26,25 +24,9 @@ class SearchIndexInvalidator
     /**
      * @param  iterable<int, int|string|null>  $ids
      */
-    public function reindexMasterProducts(iterable $ids): void
-    {
-        $this->reindexSearchableByIds(MasterProduct::class, $ids);
-    }
-
-    /**
-     * @param  iterable<int, int|string|null>  $ids
-     */
     public function reindexGroupProducts(iterable $ids): void
     {
         $this->reindexSearchableByIds(GroupProduct::class, $ids);
-    }
-
-    /**
-     * @param  iterable<int, int|string|null>  $ids
-     */
-    public function reindexPrinters(iterable $ids): void
-    {
-        $this->reindexSearchableByIds(Post::class, $ids, fn ($query) => $query->where('post_type', 'printer'));
     }
 
     public function reindexProduct(Product|int $product): void
@@ -52,24 +34,9 @@ class SearchIndexInvalidator
         $this->reindexProducts([$product instanceof Product ? $product->getKey() : $product]);
     }
 
-    public function reindexPrinter(Post|int $printer): void
-    {
-        $this->reindexPrinters([$printer instanceof Post ? $printer->getKey() : $printer]);
-    }
-
     public function reindexForProduct(Product $product): void
     {
         $this->reindexProduct($product);
-    }
-
-    public function reindexForPrinter(Post|int $printer): void
-    {
-        $printerId = $printer instanceof Post ? (int) $printer->getKey() : (int) $printer;
-
-        $this->reindexPrinter($printerId);
-        $this->reindexProducts(
-            collect()
-        );
     }
 
     /**
@@ -86,30 +53,17 @@ class SearchIndexInvalidator
         $allTaxonIds = $this->taxonIdsWithDescendants($taxonIds);
 
         $productIds = $this->modelTaxonIdsFor(Product::class, $allTaxonIds);
-        $masterProductIds = $this->modelTaxonIdsFor(MasterProduct::class, $allTaxonIds);
-
         $this->reindexProducts($productIds);
-        $this->reindexMasterProducts($masterProductIds);
-        $this->reindexPrinters(
-            collect()
-        );
     }
 
     /**
      * @param  iterable<int, int|string|null>  $productIds
-     * @param  iterable<int, int|string|null>  $masterProductIds
      */
-    public function reindexTaxonAssignmentTargets(
-        iterable $productIds,
-        iterable $masterProductIds = []
-    ): void {
+    public function reindexTaxonAssignmentTargets(iterable $productIds): void
+    {
         $productIds = $this->normalizeIds($productIds);
 
         $this->reindexProducts($productIds);
-        $this->reindexMasterProducts($masterProductIds);
-        $this->reindexPrinters(
-            collect()
-        );
     }
 
     public function reindexForTranslation(Translation $translation): void
@@ -119,9 +73,7 @@ class SearchIndexInvalidator
 
         match ($modelClass) {
             Product::class => $this->reindexProducts([$modelId]),
-            MasterProduct::class => $this->reindexMasterProducts([$modelId]),
             GroupProduct::class => $this->reindexGroupProducts([$modelId]),
-            Post::class => $this->reindexForPrinter($modelId),
             Taxon::class => $this->reindexForTaxons([$modelId]),
             default => null,
         };
@@ -137,9 +89,6 @@ class SearchIndexInvalidator
 
         $this->reindexProducts($productIds);
         $this->reindexForTaxons($taxonIds);
-        $this->reindexPrinters(
-            collect()
-        );
     }
 
     /**
@@ -239,7 +188,7 @@ class SearchIndexInvalidator
      */
     protected function classForMorphType(string $morphType): ?string
     {
-        foreach ([Product::class, MasterProduct::class, GroupProduct::class, Post::class, Taxon::class] as $modelClass) {
+        foreach ([Product::class, GroupProduct::class, Taxon::class] as $modelClass) {
             if (in_array($morphType, $this->morphTypesFor($modelClass), true)) {
                 return $modelClass;
             }

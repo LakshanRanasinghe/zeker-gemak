@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Exports\ProductExport;
 use App\Models\Export;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,20 +56,16 @@ class ExportProductsJob implements ShouldQueue
     protected function countTotalRows(?array $rowIds): int
     {
         if ($rowIds === null) {
-            return Product::whereNull('deleted_at')->count()
-                + MasterProduct::whereNull('deleted_at')->count();
+            return Product::whereNull('deleted_at')->count();
         }
 
         $simpleIds = [];
-        $variableIds = [];
 
         foreach ($rowIds as $rowId) {
             [$type, $id] = explode('_', $rowId, 2);
 
             if ($type === 'simple') {
                 $simpleIds[] = (int) $id;
-            } else {
-                $variableIds[] = (int) $id;
             }
         }
 
@@ -78,10 +73,6 @@ class ExportProductsJob implements ShouldQueue
 
         if (! empty($simpleIds)) {
             $count += Product::whereNull('deleted_at')->whereIn('id', $simpleIds)->count();
-        }
-
-        if (! empty($variableIds)) {
-            $count += MasterProduct::whereNull('deleted_at')->whereIn('id', $variableIds)->count();
         }
 
         return $count;

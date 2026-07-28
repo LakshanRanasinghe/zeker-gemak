@@ -33,14 +33,6 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('group-products/create', 'group-products.create-update')->name('group-products.create');
     Route::livewire('group-products/{groupProduct}/edit', 'group-products.create-update')->name('group-products.edit');
 
-    Route::livewire('pages', 'pages.index')->name('pages.index');
-    Route::livewire('pages/create', 'pages.create-update')->name('pages.create');
-    Route::livewire('pages/{page}/edit', 'pages.create-update')->name('pages.edit');
-
-    Route::livewire('posts', 'posts.index')->name('posts.index');
-    Route::livewire('posts/create', 'posts.create-update')->name('posts.create');
-    Route::livewire('posts/{post}/edit', 'posts.create-update')->name('posts.edit');
-
     Route::livewire('faq-items', 'faq-items.index')->name('faq-items.index');
     Route::livewire('faq-items/create', 'faq-items.create-update')->name('faq-items.create');
     Route::livewire('faq-items/{faqItem}/edit', 'faq-items.create-update')->name('faq-items.edit');
@@ -48,9 +40,6 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('faq-pages', 'faq-pages.index')->name('faq-pages.index');
     Route::livewire('faq-pages/create', 'faq-pages.create-update')->name('faq-pages.create');
     Route::livewire('faq-pages/{faqPage}/edit', 'faq-pages.create-update')->name('faq-pages.edit');
-
-    Route::livewire('printers', 'printers.index')->name('printers.index');
-    Route::livewire('printers/{printer}/edit', 'printers.create-update')->name('printers.edit');
 
     Route::livewire('taxonomies', 'taxonomies.index')->name('taxonomies.index');
     Route::livewire('taxonomies/create', 'taxonomies.create-update')->name('taxonomies.create');
@@ -207,7 +196,7 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
         Route::get('reset-password', function () {
             return view('emails.reset-password', [
                 'user' => (object) ['name' => 'John Doe'],
-                'resetUrl' => 'http://businesslabels.test/password/reset/dummy-token',
+                'resetUrl' => url('/password/reset/dummy-token'),
                 'logoUrl' => asset('images/zeker-gemak-logo.png'),
                 'appUrl' => config('app.url'),
             ]);

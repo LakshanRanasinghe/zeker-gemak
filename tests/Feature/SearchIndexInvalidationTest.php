@@ -66,7 +66,7 @@ it('can reindex affected records after product category pivots change', function
     expect($indexedKeys)->toContain('product_'.$product->id);
 });
 
-it('indexes simple product default fields as Dutch and translations as English', function () {
+it('indexes simple product fields in Dutch only', function () {
     $product = catalog_test_product([
         'name' => 'Nederlandse naam',
         'title' => 'Nederlandse titel',
@@ -88,11 +88,11 @@ it('indexes simple product default fields as Dutch and translations as English',
         ->and($payload['slug'])->toBe('nederlandse-slug')
         ->and(catalog_translation_value($payload, 'nl', 'title'))->toBe('Nederlandse titel')
         ->and(catalog_translation_value($payload, 'nl', 'slug'))->toBe('nederlandse-slug')
-        ->and(catalog_translation_value($payload, 'en', 'title'))->toBe('English title')
-        ->and(catalog_translation_value($payload, 'en', 'slug'))->toBe('english-slug');
+        ->and(catalog_translation_value($payload, 'en', 'title'))->toBeNull()
+        ->and(catalog_translation_value($payload, 'en', 'slug'))->toBeNull();
 });
 
-it('indexes group product default fields as Dutch and translations as English', function () {
+it('indexes group product fields in Dutch only', function () {
     $groupProduct = GroupProduct::create([
         'name' => 'Nederlandse groep naam',
         'title' => 'Nederlandse groep titel',
@@ -117,12 +117,12 @@ it('indexes group product default fields as Dutch and translations as English', 
 
     expect($payload['name'])->toBe('Nederlandse groep naam')
         ->and($payload['title'])->toBe('Nederlandse groep titel')
-        ->and($payload['slug'])->toBe(['nederlandse-groep-slug', 'english-group-slug'])
+        ->and($payload['slug'])->toBe(['nederlandse-groep-slug'])
         ->and($payload['api_path_by_slug'])->toBe('/api/group-products/slug/nederlandse-groep-slug')
         ->and(catalog_translation_value($payload, 'nl', 'title'))->toBe('Nederlandse groep titel')
         ->and(catalog_translation_value($payload, 'nl', 'slug'))->toBe('nederlandse-groep-slug')
-        ->and(catalog_translation_value($payload, 'en', 'title'))->toBe('English group title')
-        ->and(catalog_translation_value($payload, 'en', 'slug'))->toBe('english-group-slug');
+        ->and(catalog_translation_value($payload, 'en', 'title'))->toBeNull()
+        ->and(catalog_translation_value($payload, 'en', 'slug'))->toBeNull();
 });
 
 function catalog_test_product(array $attributes = []): Product

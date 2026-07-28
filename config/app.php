@@ -59,13 +59,11 @@ return [
     | Storefront (Frontend) URL
     |--------------------------------------------------------------------------
     |
-    | Base URL of the Next.js storefront. Used to build canonical product
-    | page links — e.g. the "Printer URL" that connects a product finder
-    | entry to its actual product page.
+    | Base URL of the storefront.
     |
     */
 
-    'frontend_url' => env('FRONTEND_URL', 'https://businesslabels.nl'),
+    'frontend_url' => env('FRONTEND_URL'),
 
     /*
     |--------------------------------------------------------------------------
@@ -91,11 +89,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'nl'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'nl'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'nl_NL'),
 
     /*
     |--------------------------------------------------------------------------
@@ -142,94 +140,7 @@ return [
     'currency_symbol' => '€',
     'main_locale' => env('APP_LOCALE', 'nl'),
     'available_locales' => [
-        'en' => 'English',
         'nl' => 'Dutch',
-    ],
-
-    // Material Configs
-    'material_brands' => [
-        'CREATIVE' => 'Creative',
-        'DIAMOND' => 'Diamondlabels',
-        'EPSON' => 'Epson',
-        'EXPOBADGE' => 'ExpoBadge',
-        'PURELABELS' => 'Pure Labels',
-        'SEIKO' => 'Seiko',
-        'ZEBRA' => 'Zebra',
-    ],
-    'material_print_method' => [
-        'thermal_direct' => 'Thermal Direct',
-        'thermal_transfer' => 'Thermal Transfer',
-        'water_based_inkjet' => 'Water based Inkjet',
-    ],
-    'material_base_material' => [
-        'PE_150' => '150 mu PE (polyethylene)',
-        'PP_155' => '155 mu PP (polypropylene)',
-        'PP_350' => '350 mu PP (polypropylene)',
-        'GRASS' => 'Grass paper',
-        'HDPE' => 'HDPE',
-        'PAPER' => 'Paper',
-        'PE' => 'Polyethylene',
-        'PE_DEST' => 'PE Destructible',
-        'PET' => 'PET',
-        'PO' => 'PO(Polyolefin)',
-        'PP' => 'PP (Polypropylene)',
-        'PP_PAPER' => 'PP front, paper back',
-        'SANDWICH' => 'Sandwich, paper on laminate',
-        'TEAR_PROOF' => 'Tear-proof paper',
-        'VINYL' => 'Vinyl',
-        'VOID' => 'VOID',
-    ],
-    'material_finish' => [
-        'BLUE' => 'Blue',
-        'ECO_COATED' => 'Eco Coated',
-        'GLOSS' => 'Glossy',
-        'GLOSS_SILVER' => 'Glossy Silver',
-        'GLOSS_TOPCOAT' => 'Glossy, topcoated',
-        'INKJET_COATED' => 'Inkjet coated',
-        'MACHINE_COATED' => 'Machine coated',
-        'MAT' => 'Matte',
-        'MAT_SILVER' => 'Matte silver',
-        'NONE' => 'None',
-        'ORANGE' => 'Orange',
-        'RED' => 'Red',
-        'SATIN_GLOSS' => 'Satin gloss',
-        'SILICONE_COATED' => 'Silicone coated',
-        'STRUCT_MAT' => 'Structured matte',
-        'TOP_COATED' => 'Top coated',
-        'TRANSPARENT' => 'Transparent',
-        'UNCOATED' => 'Uncoated',
-        'WOOD_MAT' => 'Wood structure matte',
-        'YELLOW' => 'Yellow',
-    ],
-    'material_adhesive' => [
-        'DEEPFREEZE' => 'Deep freeze',
-        'EXTRA_PERM' => 'Extra permanent',
-        'HIGH_TACK' => 'High tack',
-        'HOTMELT' => 'Hotmelt',
-        'LINERLESS_HOT' => 'Linerless, hotmelt',
-        'LINERLESS_PERM' => 'Linerless, permanent',
-        'NONE_TICKER' => 'None (ticket)',
-        'OPAQUE_PERM' => 'Opaque, permanent',
-        'PERMANENT' => 'Permanent',
-        'REMOVABLE' => 'Removable',
-        'TAMPER_PROOF' => 'Tamper proof',
-        'ULTRA_REMOV' => 'Ultra removable',
-        'WASHABLE' => 'Washable',
-    ],
-    'material_suppliers' => [
-        'FREELABELPILOT' => '#FREELABELPILOT',
-        'ETIKETENKONING' => 'etikettenkoning.nl',
-        'INGRAM_MICRO' => 'Ingram Micro',
-        'JARLTECH' => 'Jarltech',
-        'KOLIBRI' => 'Kolibri',
-        'NAKAGAWA' => 'Nakagawa',
-        'POLCOAT' => 'Polcoat',
-        'PROFILABEL' => 'Profilabel',
-        'SCANSOURCE' => 'ScanSource',
-        'SEIKO_GMBH' => 'Seiko Instruments GMBH',
-        'SUPPLY_SERVICE' => 'Supply Service',
-        'WR_ETIKETTEN' => 'W&R Etiketten BV',
-        'ZOLEMBA' => 'Zolemba',
     ],
 
     /*
@@ -237,15 +148,15 @@ return [
     | Company Details
     |--------------------------------------------------------------------------
     |
-    | Used on generated documents such as the material spec-sheet PDF footer.
+    | Used on generated documents.
     |
     */
     'company' => [
-        'name' => env('COMPANY_NAME', 'BusinessLabels'),
-        'phone' => env('COMPANY_PHONE', '+31 (0)318 590 465'),
-        'email' => env('COMPANY_EMAIL', 'verkoop@businesslabels.nl'),
-        'address' => env('COMPANY_ADDRESS', 'Edisonstraat 86, 3899 AR Zeewolde, Netherlands'),
-        'website' => env('COMPANY_WEBSITE', 'www.businesslabels.nl'),
+        'name' => env('COMPANY_NAME', 'Zeker Gemak'),
+        'phone' => env('COMPANY_PHONE'),
+        'email' => env('COMPANY_EMAIL'),
+        'address' => env('COMPANY_ADDRESS'),
+        'website' => env('COMPANY_WEBSITE'),
         'google_review_url' => env('COMPANY_GOOGLE_REVIEW_URL', ''),
     ],
 ];

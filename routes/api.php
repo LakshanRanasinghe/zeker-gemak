@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\FavoriteProductController;
 use App\Http\Controllers\Api\FilterController;
 use App\Http\Controllers\Api\GroupProductController;
 use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\Api\PageController;
 use App\Http\Controllers\Api\PopularProductController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -55,9 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('user/favorite-products')->name('favorite-products.')->controller(FavoriteProductController::class)->group(function () {
         Route::get('/', 'index')->name('index');
-        Route::post('{type}/{id}', 'store')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('store');
-        Route::delete('{type}/{id}', 'destroy')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('destroy');
-        Route::get('{type}/{id}/check', 'check')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('check');
+        Route::post('{type}/{id}', 'store')->where('type', 'simple')->whereNumber('id')->name('store');
+        Route::delete('{type}/{id}', 'destroy')->where('type', 'simple')->whereNumber('id')->name('destroy');
+        Route::get('{type}/{id}/check', 'check')->where('type', 'simple')->whereNumber('id')->name('check');
     });
 
 });
@@ -69,8 +68,8 @@ Route::post('webhooks/mollie', [OrderController::class, 'webhook'])->name('webho
 
 Route::prefix('products')->name('products.')->controller(ProductController::class)->group(function () {
     Route::get('/', 'index')->name('index');
-    Route::get('{type}/slug/{slug}', 'showBySlug')->whereIn('type', ['simple', 'variable'])->name('show-by-slug');
-    Route::get('{type}/{id}', 'show')->whereIn('type', ['simple', 'variable'])->whereNumber('id')->name('show');
+    Route::get('{type}/slug/{slug}', 'showBySlug')->where('type', 'simple')->name('show-by-slug');
+    Route::get('{type}/{id}', 'show')->where('type', 'simple')->whereNumber('id')->name('show');
 });
 
 Route::prefix('group-products')->name('group-products.')->controller(GroupProductController::class)->group(function () {
@@ -92,16 +91,6 @@ Route::prefix('reviews')->name('reviews.')->controller(CustomerReviewController:
 
 Route::get('/search', [SearchController::class, 'search'])->name('search');
 
-Route::prefix('pages')->name('pages.')->controller(PageController::class)->group(function () {
-    Route::get('/', 'index')->name('index');
-    Route::get('/slug/{slug}', 'show')->name('show');
-});
-
-Route::prefix('posts')->name('posts.')->controller(PageController::class)->group(function () {
-    Route::get('/', 'posts')->name('index');
-    Route::get('/slug/{slug}', 'showPost')->name('show');
-});
-
 Route::prefix('faq')->name('faq.')->controller(FaqController::class)->group(function () {
     Route::get('/', 'index')->name('index');
     Route::get('/slug/{slug}', 'show')->name('show');
@@ -110,8 +99,6 @@ Route::prefix('faq')->name('faq.')->controller(FaqController::class)->group(func
 Route::post('/drawer-booking', [ContactsController::class, 'drawerBooking'])->name('drawer-booking');
 Route::post('/drawer-contact', [ContactsController::class, 'drawerContact'])->name('drawer-contact');
 Route::post('/custom-made-request', [ContactsController::class, 'customMadeRequest'])->name('custom-made-request');
-Route::post('/icc-profile-request', [ContactsController::class, 'iccProfileRequest'])->name('icc-profile-request');
-Route::post('/request-printer', [ContactsController::class, 'requestPrinter'])->name('request-printer');
 Route::post('/recycle-request', [ContactsController::class, 'recycleRequest'])->name('recycle-request');
 
 Route::get('/availabilities', [AvailabilityController::class, 'index'])->name('availabilities.index');

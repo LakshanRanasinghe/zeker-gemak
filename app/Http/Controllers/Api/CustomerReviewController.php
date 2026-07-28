@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCustomerReviewRequest;
 use App\Http\Resources\Api\CustomerReviewResource;
 use App\Models\CustomerReview;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,10 +38,8 @@ class CustomerReviewController extends Controller
         $data = $request->validated();
 
         if (! empty($data['product_id'])) {
-            $type = $data['product_type'] ?? 'simple';
-            $exists = $type === 'variable'
-                ? MasterProduct::whereKey($data['product_id'])->exists()
-                : Product::whereKey($data['product_id'])->exists();
+            $type = 'simple';
+            $exists = Product::whereKey($data['product_id'])->exists();
 
             if (! $exists) {
                 return response()->json([

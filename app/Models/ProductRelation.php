@@ -11,8 +11,6 @@ class ProductRelation extends Model
 
     public const TYPE_CROSSSELL = 'crosssell';
 
-    public const TYPE_PRINTER = 'printer';
-
     protected $fillable = [
         'product_id',
         'related_product_id',

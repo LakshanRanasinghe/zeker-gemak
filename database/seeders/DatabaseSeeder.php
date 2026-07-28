@@ -25,11 +25,5 @@ class DatabaseSeeder extends Seeder
             UserRoles::class,
             UserSeeder::class,
         ]);
-
-        if (app()->isLocal()) {
-            $this->call([
-                CategoryApiDemoSeeder::class,
-            ]);
-        }
     }
 }

@@ -95,14 +95,6 @@
                     </flux:sidebar.group>
 
                     <flux:sidebar.group :heading="__('CMS')" class="grid">
-                        <flux:sidebar.item icon="layout-grid" :href="route('pages.index')"
-                            :current="request()->routeIs('pages.index')" wire:navigate>
-                            {{ __('Pages') }}
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="document-text" :href="route('posts.index')"
-                            :current="request()->routeIs('posts.index')" wire:navigate>
-                            {{ __('Posts') }}
-                        </flux:sidebar.item>
                         <flux:sidebar.item icon="question-mark-circle" :href="route('faq-items.index')"
                             :current="request()->routeIs('faq-items.*')" wire:navigate>
                             {{ __('FAQ Items') }}

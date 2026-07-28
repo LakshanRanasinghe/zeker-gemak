@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Contracts\CatalogSearchGateway;
 use App\Models\GroupProduct;
-use App\Models\MasterProduct;
 use App\Models\Product;
 use App\Support\ApiLocale;
 use App\Support\CatalogFacetNormalizer;
@@ -89,12 +88,12 @@ class ProductCatalogService
         ];
     }
 
-    public function findByTypeAndId(string $type, int $id): Product|MasterProduct
+    public function findByTypeAndId(string $type, int $id): Product
     {
         return $this->modelQuery($type)->findOrFail($id);
     }
 
-    public function findByTypeAndSlug(string $type, string $slug): Product|MasterProduct
+    public function findByTypeAndSlug(string $type, string $slug): Product
     {
         $model = $this->modelQuery($type)->where('slug', $slug)->first();
 
@@ -113,19 +112,12 @@ class ProductCatalogService
     {
         return [
             ['value' => 'simple', 'label' => __('Simple')],
-            ['value' => 'variable', 'label' => __('Variable')],
         ];
     }
 
     public function stateOptions(): array
     {
-        return collect(
-            DB::table('products')->select('state')
-                ->union(
-                    DB::table('master_products')->select('state')
-                )
-                ->pluck('state')
-        )
+        return DB::table('products')->pluck('state')
             ->filter()
             ->unique()
             ->sort()
@@ -350,12 +342,9 @@ class ProductCatalogService
     {
         return match ($type) {
             'simple' => $this->hasSimpleProducts() ? [(new Product)->searchableAs()] : [],
-            'variable' => $this->hasVariableProducts() ? [(new MasterProduct)->searchableAs()] : [],
-            'group' => $this->hasGroupProducts() ? [(new GroupProduct)->searchableAs()] : [],
+            'group' => $this->hasGroupProducts() ? [(new Product)->searchableAs()] : [],
             default => array_values(array_filter([
                 $this->hasSimpleProducts() ? (new Product)->searchableAs() : null,
-                $this->hasVariableProducts() ? (new MasterProduct)->searchableAs() : null,
-                // GroupProduct shares the simple index; no separate index needed
             ])),
         };
     }
@@ -363,11 +352,6 @@ class ProductCatalogService
     protected function hasSimpleProducts(): bool
     {
         return Product::query()->whereNull('deleted_at')->exists();
-    }
-
-    protected function hasVariableProducts(): bool
-    {
-        return MasterProduct::query()->whereNull('deleted_at')->exists();
     }
 
     protected function hasGroupProducts(): bool
@@ -638,7 +622,6 @@ class ProductCatalogService
     {
         return match ($index) {
             (new Product)->searchableAs() => 'simple',
-            (new MasterProduct)->searchableAs() => 'variable',
             default => null,
         };
     }
@@ -648,9 +631,9 @@ class ProductCatalogService
         $type = $this->normalizeType($type);
         abort_unless($type !== null, 404);
 
-        return $type === 'simple'
-            ? Product::query()->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'activeWarrantyOptions'])
-            : MasterProduct::query()->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property']);
+        abort_unless($type === 'simple', 404);
+
+        return Product::query()->with(['translations', 'taxons.taxonomy', 'metas', 'propertyValues.property', 'media', 'activeWarrantyOptions']);
     }
 
     protected function exactMetaFilterValues(string $field, array $definition, array $filters): array
@@ -670,7 +653,6 @@ class ProductCatalogService
     protected function elasticFacetField(string $field): string
     {
         return match ($field) {
-            'materiaal-code' => 'catalog_material_code',
             'merken' => 'compatible_brands',
             default => "properties.{$field}.keyword",
         };
@@ -725,7 +707,7 @@ class ProductCatalogService
             ->whereIn('properties.slug', $propertySlugs)
             ->whereIn('model_property_values.model_type', [
                 morph_type_of(Product::class),
-                morph_type_of(MasterProduct::class),
+                morph_type_of(GroupProduct::class),
             ])
             ->whereNotNull('property_values.value')
             ->where('property_values.value', '!=', '')
@@ -742,15 +724,8 @@ class ProductCatalogService
             ->whereNull('deleted_at')
             ->whereNotNull('price');
 
-        $minimum = collect([
-            $excludeWarranty(DB::table('products'))->min('price'),
-            $excludeWarranty(DB::table('master_products'))->min('price'),
-        ])->filter(fn ($value) => $value !== null);
-
-        $maximum = collect([
-            $excludeWarranty(DB::table('products'))->max('price'),
-            $excludeWarranty(DB::table('master_products'))->max('price'),
-        ])->filter(fn ($value) => $value !== null);
+        $minimum = collect([$excludeWarranty(DB::table('products'))->min('price')])->filter(fn ($value) => $value !== null);
+        $maximum = collect([$excludeWarranty(DB::table('products'))->max('price')])->filter(fn ($value) => $value !== null);
 
         return [
             'min' => $minimum->isNotEmpty() ? (float) $minimum->min() : 0.0,
@@ -771,7 +746,6 @@ class ProductCatalogService
     protected function hydrateProducts(Collection $items): Collection
     {
         $simpleIds = $items->where('product_type', 'simple')->pluck('id')->map(fn ($id) => (int) $id)->values();
-        $masterIds = $items->where('product_type', 'variable')->pluck('id')->map(fn ($id) => (int) $id)->values();
         $groupIds = $items->where('product_type', 'group')->pluck('id')->map(fn ($id) => (int) $id)->values();
 
         $simpleProducts = Product::query()
@@ -780,22 +754,15 @@ class ProductCatalogService
             ->get()
             ->keyBy(fn (Product $product) => (string) $product->getKey());
 
-        $masterProducts = MasterProduct::query()
-            ->with(['translations', 'taxons.taxonomy', 'metas', 'media', 'variants.propertyValues.property'])
-            ->whereIn('id', $masterIds)
-            ->get()
-            ->keyBy(fn (MasterProduct $product) => (string) $product->getKey());
-
         $groupProducts = GroupProduct::query()
             ->with(['translations', 'taxons.taxonomy', 'media', 'items.product', 'discountGroup'])
             ->whereIn('id', $groupIds)
             ->get()
             ->keyBy(fn (GroupProduct $product) => (string) $product->getKey());
 
-        return $items->map(function ($item) use ($masterProducts, $simpleProducts, $groupProducts) {
+        return $items->map(function ($item) use ($simpleProducts, $groupProducts) {
             $product = match ($item->product_type) {
                 'simple' => $simpleProducts->get((string) $item->id),
-                'variable' => $masterProducts->get((string) $item->id),
                 'group' => $groupProducts->get((string) $item->id),
                 default => null,
             };
@@ -818,7 +785,7 @@ class ProductCatalogService
 
         $normalized = strtolower(trim($type));
 
-        return in_array($normalized, ['simple', 'variable', 'group'], true) ? $normalized : null;
+        return in_array($normalized, ['simple', 'group'], true) ? $normalized : null;
     }
 
     protected function normalizeSearch(mixed $value): ?string
@@ -903,7 +870,7 @@ class ProductCatalogService
         return max(1, min($perPage, 100));
     }
 
-    protected function findTranslatedModelBySlug(string $type, string $slug): Product|MasterProduct|null
+    protected function findTranslatedModelBySlug(string $type, string $slug): ?Product
     {
         $locale = ApiLocale::current();
 
@@ -911,8 +878,7 @@ class ProductCatalogService
             return null;
         }
 
-        $class = $type === 'simple' ? Product::class : MasterProduct::class;
-        $translation = Translation::findBySlug(morph_type_of($class), $slug, $locale);
+        $translation = Translation::findBySlug(morph_type_of(Product::class), $slug, $locale);
 
         if (! $translation) {
             return null;
@@ -920,6 +886,6 @@ class ProductCatalogService
 
         $model = $translation->getTranslatable();
 
-        return $model instanceof Product || $model instanceof MasterProduct ? $model : null;
+        return $model instanceof Product ? $model : null;
     }
 }

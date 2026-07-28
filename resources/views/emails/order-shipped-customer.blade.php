@@ -191,9 +191,9 @@
             <p style="margin-top:12px;">
                 &copy;&nbsp;{{ date('Y') }}&nbsp;Business&nbsp;Labels. {{ __('order_emails.common.rights') }}
                 <span class="dot"></span>
-                <a href="{{ config('app.url') }}" target="_blank">businesslabels.nl</a>
+                <a href="{{ config('app.url') }}" target="_blank">{{ config('app.company.website') }}</a>
                 <span class="dot"></span>
-                <a href="mailto:verkoop@businesslabels.nl">verkoop@businesslabels.nl</a>
+                <a href="mailto:{{ config('app.company.email') }}">{{ config('app.company.email') }}</a>
             </p>
         </div>
     </div>
