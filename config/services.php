@@ -72,6 +72,19 @@ return [
         ],
     ],
 
+    'zeker_gemak_moneybird' => [
+        'client_id' => env('ZEKER_GEMAK_MONEYBIRD_CLIENT_ID'),
+        'client_secret' => env('ZEKER_GEMAK_MONEYBIRD_CLIENT_SECRET'),
+        'redirect_uri' => env('ZEKER_GEMAK_MONEYBIRD_REDIRECT_URI', env('APP_URL').'/moneybird/callback'),
+        'api_url' => env('ZEKER_GEMAK_MONEYBIRD_API_URL', 'https://moneybird.com/api/v2'),
+        'authorize_url' => env('ZEKER_GEMAK_MONEYBIRD_AUTHORIZE_URL', 'https://moneybird.com/oauth/authorize'),
+        'token_url' => env('ZEKER_GEMAK_MONEYBIRD_TOKEN_URL', 'https://moneybird.com/oauth/token'),
+        'dashboard_url' => env('ZEKER_GEMAK_MONEYBIRD_DASHBOARD_URL', 'https://moneybird.com'),
+        'connect_timeout' => (int) env('ZEKER_GEMAK_MONEYBIRD_CONNECT_TIMEOUT', 5),
+        'timeout' => (int) env('ZEKER_GEMAK_MONEYBIRD_TIMEOUT', 15),
+        'scopes' => ['sales_invoices', 'settings'],
+    ],
+
     'dropbox' => [
         'api_url' => env('DROPBOX_API_URL', 'https://api.dropboxapi.com'),
         'content_url' => env('DROPBOX_CONTENT_URL', 'https://content.dropboxapi.com'),

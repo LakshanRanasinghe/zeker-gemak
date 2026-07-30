@@ -17,6 +17,11 @@ class Order extends BaseOrder
         'original_checkout_payload',
         'tracking_number',
         'dhl_data',
+        'moneybird_invoice_id',
+        'moneybird_invoice_number',
+        'moneybird_invoice_status',
+        'moneybird_invoice_url',
+        'moneybird_invoice_sent_at',
     ];
 
     protected function casts(): array
@@ -24,6 +29,7 @@ class Order extends BaseOrder
         return array_merge(parent::casts(), [
             'original_checkout_payload' => 'array',
             'dhl_data' => 'array',
+            'moneybird_invoice_sent_at' => 'datetime',
         ]);
     }
 }

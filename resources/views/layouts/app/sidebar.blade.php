@@ -74,26 +74,26 @@
                     </flux:sidebar.group>
 
                     <flux:sidebar.group :heading="__('Settings')" class="grid">
-                        <flux:sidebar.item icon="globe-alt" :href="route('zones.index')"
+                        {{-- <flux:sidebar.item icon="globe-alt" :href="route('zones.index')"
                             :current="request()->routeIs('zones.*')" wire:navigate>
                             {{ __('Zones') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="receipt-percent" :href="route('tax-settings.index')"
                             :current="request()->routeIs('tax-settings.*')" wire:navigate>
                             {{ __('Tax') }}
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="truck" :href="route('shipping-settings.index')"
+                        </flux:sidebar.item> --}}
+                        {{-- <flux:sidebar.item icon="truck" :href="route('shipping-settings.index')"
                             :current="request()->routeIs('shipping-settings.*')" wire:navigate>
                             {{ __('Shipping') }}
-                        </flux:sidebar.item>
+                        </flux:sidebar.item> --}}
                         <flux:sidebar.item icon="globe-europe-africa" :href="route('shipping-cost.index')"
                             :current="request()->routeIs('shipping-cost.*')" wire:navigate>
                             {{ __('Shipping Costs') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="users" :href="route('settings.show', 'team')"
+                        {{-- <flux:sidebar.item icon="users" :href="route('settings.show', 'team')"
                             :current="request()->routeIs('settings.show') && request()->route('tab') === 'team'" wire:navigate>
                             {{ __('Team') }}
-                        </flux:sidebar.item>
+                        </flux:sidebar.item> --}}
                         <flux:sidebar.item icon="star" :href="route('settings.show', 'popular-products')"
                             :current="request()->routeIs('settings.show') && request()->route('tab') === 'popular-products'" wire:navigate>
                             {{ __('Popular Products') }}
@@ -101,6 +101,10 @@
                         <flux:sidebar.item icon="truck" :href="route('settings.show', 'dhl')"
                             :current="request()->routeIs('settings.show') && request()->route('tab') === 'dhl'" wire:navigate>
                             {{ __('DHL') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="receipt-percent" :href="route('moneybird.settings')"
+                            :current="request()->routeIs('moneybird.*')" wire:navigate>
+                            {{ __('Moneybird') }}
                         </flux:sidebar.item>
                     </flux:sidebar.group>
 

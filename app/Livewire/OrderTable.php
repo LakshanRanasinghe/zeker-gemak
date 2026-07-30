@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\MoneybirdException;
 use App\Exceptions\ShippingDocumentException;
 use App\Services\DropboxClient;
 use App\Services\GenerateDhlShippingDocuments;
+use App\Services\Moneybird\MoneybirdClient;
 use App\Services\OrderExportService;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,6 +91,9 @@ final class OrderTable extends PowerGridComponent
             })
             ->add('formatted_total', fn ($row) => config('app.currency_symbol', '$').number_format((float) $row->total(), 2))
             ->add('xml_exported_label', fn ($row) => $row->xml_exported ? __('Yes') : __('No'))
+            ->add('moneybird_invoice_status_label', fn ($row) => $row->moneybird_invoice_status
+                ? ucfirst($row->moneybird_invoice_status)
+                : __('Not created'))
             ->add('debitor_no', fn ($row) => $row->user?->debitor_no ?? '-')
             ->add('created_at', fn ($row) => $row->created_at instanceof Carbon ? $row->created_at->format('d/m/Y H:i:s') : $row->created_at);
     }
@@ -96,9 +101,7 @@ final class OrderTable extends PowerGridComponent
     public function columns(): array
     {
         return [
-            Column::make(__('ID'), 'id')
-                ->searchable()
-                ->sortable(),
+            Column::make(__('ID'), 'id')->hidden(),
 
             Column::make(__('Number'), 'number')
                 ->sortable()
@@ -112,13 +115,14 @@ final class OrderTable extends PowerGridComponent
 
             Column::make(__('Total'), 'formatted_total'),
 
-            Column::make(__('Exported'), 'xml_exported_label', 'xml_exported')
+            Column::make(__('Exported'), 'xml_exported_label', 'xml_exported')->hidden(),
+
+            Column::make(__('Moneybird'), 'moneybird_invoice_status_label', 'moneybird_invoice_status')
                 ->sortable(),
 
             Column::make(__('Debitor #'), 'debitor_no'),
 
-            Column::make(__('Created at'), 'created_at')
-                ->sortable(),
+            Column::make(__('Created at'), 'created_at')->hidden(),
 
             Column::action(__('Action')),
         ];
@@ -218,6 +222,33 @@ final class OrderTable extends PowerGridComponent
                 ->dispatch('exportXml', ['id' => $row->id])
                 ->can(! $row->xml_exported),
 
+            Button::add('create-moneybird-invoice')
+                ->slot(__('Create invoice'))
+                ->class('px-2 py-1 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-md text-sm shadow-sm hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 transition-colors')
+                ->call('createMoneybirdInvoice', [$row->id])
+                ->attributes([
+                    'wire:loading.remove' => '',
+                    'wire:loading.attr' => 'disabled',
+                    'wire:target' => "createMoneybirdInvoice({$row->id})",
+                ])
+                ->can(blank($row->moneybird_invoice_id)),
+
+            Button::add('creating-moneybird-invoice')
+                ->slot(__('Creating invoice...'))
+                ->class('px-2 py-1 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-md text-sm shadow-sm text-sky-700 dark:text-sky-300 opacity-70 cursor-wait')
+                ->attributes([
+                    'wire:loading' => '',
+                    'wire:target' => "createMoneybirdInvoice({$row->id})",
+                    'disabled' => true,
+                ])
+                ->can(blank($row->moneybird_invoice_id)),
+
+            Button::add('download-moneybird-invoice')
+                ->slot(__('Download invoice'))
+                ->class('px-2 py-1 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-md text-sm shadow-sm hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-700 dark:text-sky-300 transition-colors')
+                ->call('downloadMoneybirdInvoice', [$row->id])
+                ->can(filled($row->moneybird_invoice_id)),
+
             Button::add('ship')
                 ->slot(__('Ship'))
                 ->class('px-2 py-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-sm shadow-sm hover:bg-green-100 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 transition-colors')
@@ -238,6 +269,61 @@ final class OrderTable extends PowerGridComponent
                     && str_starts_with($labelPath, '/Labels Arthur/')
                     && str_ends_with($labelPath, '.pdf')),
         ];
+    }
+
+    public function createMoneybirdInvoice(int|array $id): void
+    {
+        if (is_array($id)) {
+            $id = $id[0] ?? $id['id'] ?? null;
+        }
+
+        $orderClass = OrderProxy::modelClass();
+        $order = $orderClass::findOrFail((int) $id);
+        $alreadyCreated = filled($order->moneybird_invoice_id);
+
+        try {
+            app(MoneybirdClient::class)->createInvoice($order);
+        } catch (MoneybirdException $exception) {
+            Flux::toast($exception->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast(
+            $alreadyCreated ? __('Moneybird invoice already exists.') : __('Moneybird invoice created.'),
+            variant: 'success',
+        );
+    }
+
+    public function downloadMoneybirdInvoice(int|array $id): ?StreamedResponse
+    {
+        if (is_array($id)) {
+            $id = $id[0] ?? $id['id'] ?? null;
+        }
+
+        $orderClass = OrderProxy::modelClass();
+        $order = $orderClass::findOrFail((int) $id);
+
+        if (blank($order->moneybird_invoice_id)) {
+            Flux::toast(__('Moneybird invoice not found.'), variant: 'danger');
+
+            return null;
+        }
+
+        try {
+            $pdf = app(MoneybirdClient::class)->downloadInvoicePdf($order->moneybird_invoice_id);
+        } catch (MoneybirdException $exception) {
+            Flux::toast($exception->getMessage(), variant: 'danger');
+
+            return null;
+        }
+
+        return response()->streamDownload(function () use ($pdf): void {
+            echo $pdf;
+        }, 'moneybird-invoice-'.$order->number.'.pdf', [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function openShippingLabelModal(int|array $id): void

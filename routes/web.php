@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\MoneybirdController;
 use App\Http\Controllers\WysiwygUploadController;
 use App\Models\Product;
 use Illuminate\Support\Facades\Route;
@@ -87,6 +88,9 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('shipping-cost', 'shipping-cost.index')->name('shipping-cost.index');
     Route::livewire('shipping-cost/create', 'shipping-cost.create-update')->name('shipping-cost.create');
     Route::livewire('shipping-cost/{shippingRule}/edit', 'shipping-cost.create-update')->name('shipping-cost.edit');
+    Route::livewire('moneybird-settings', 'moneybird-settings.index')->name('moneybird.settings');
+    Route::get('moneybird/connect', [MoneybirdController::class, 'connect'])->name('moneybird.connect');
+    Route::get('moneybird/callback', [MoneybirdController::class, 'callback'])->name('moneybird.callback');
     Route::redirect('admin-settings', 'admin-settings/team')->name('settings.index');
     Route::livewire('admin-settings/{tab}', 'settings.index')
         ->whereIn('tab', ['team', 'popular-products', 'dhl'])
