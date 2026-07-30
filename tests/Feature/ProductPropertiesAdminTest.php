@@ -126,4 +126,5 @@ it('assigns selected brand taxons as product brand property values', function ()
         ->all();
 
     expect($selectedValues)->toBe(['dymo']);
+    expect($product->fresh()->taxons()->pluck('taxons.id')->all())->toBe([$dymo->id]);
 });

@@ -27,9 +27,9 @@ use Vanilo\Taxes\Models\TaxCategory;
 
 class WooCommerceSyncService
 {
-    public const DOMAINS = ['discounts', 'categories', 'products', 'customers'];
+    public const DOMAINS = ['discounts', 'categories', 'brands', 'products', 'customers'];
 
-    public const DEFAULT_DOMAINS = ['categories', 'products'];
+    public const DEFAULT_DOMAINS = ['categories', 'brands', 'products'];
 
     public function __construct(private WooCommerceClient $client) {}
 
@@ -68,7 +68,7 @@ class WooCommerceSyncService
             }
 
             $syncItem = fn (): bool => DB::transaction(fn (): bool => $this->syncItem($run, $domain, $item));
-            $created = in_array($domain, ['categories', 'products'], true)
+            $created = in_array($domain, ['categories', 'brands', 'products'], true)
                 ? Product::withoutSyncingToSearch(
                     fn (): bool => GroupProduct::withoutSyncingToSearch($syncItem),
                 )
@@ -119,7 +119,11 @@ class WooCommerceSyncService
         return match ($domain) {
             'products' => $this->disableStaleProducts($startedAt),
             'customers' => $this->disableStaleCustomers($startedAt),
-            'categories' => Taxon::query()->whereNotNull('woocommerce_id')->where(fn ($query) => $query->whereNull('synced_at')->orWhere('synced_at', '<', $startedAt))->update(['is_active' => false]),
+            'categories', 'brands' => Taxon::query()
+                ->where('taxonomy_id', $this->taxonomy($domain)->id)
+                ->whereNotNull('woocommerce_id')
+                ->where(fn ($query) => $query->whereNull('synced_at')->orWhere('synced_at', '<', $startedAt))
+                ->update(['is_active' => false]),
             'discounts' => DiscountGroup::query()->whereNotNull('woocommerce_id')->where(fn ($query) => $query->whereNull('synced_at')->orWhere('synced_at', '<', $startedAt))->update(['is_active' => false]),
             default => 0,
         };
@@ -147,9 +151,10 @@ class WooCommerceSyncService
         return $updated;
     }
 
-    public function reconcileCategoryParents(): void
+    public function reconcileTaxonParents(string $domain): void
     {
         Taxon::query()
+            ->where('taxonomy_id', $this->taxonomy($domain)->id)
             ->whereNotNull('woocommerce_parent_id')
             ->where('woocommerce_parent_id', '>', 0)
             ->eachById(function (Taxon $taxon): void {
@@ -166,6 +171,7 @@ class WooCommerceSyncService
         return match ($domain) {
             'discounts' => $this->syncDiscountGroup($item),
             'categories' => $this->syncCategory($run, $item),
+            'brands' => $this->syncBrand($item),
             'products' => $this->syncProduct($run, $item),
             'customers' => $this->syncCustomer($item),
         };
@@ -213,27 +219,9 @@ class WooCommerceSyncService
 
     private function syncCategory(WooCommerceSyncRun $run, array $item): bool
     {
-        $taxonomy = Taxonomy::query()->firstOrCreate(
-            ['slug' => 'category'],
-            ['name' => 'Categorieën'],
-        );
+        $taxon = $this->syncTaxon($item, 'categories');
 
-        $taxon = Taxon::query()->updateOrCreate(
-            ['woocommerce_id' => (int) $item['id']],
-            [
-                'taxonomy_id' => $taxonomy->id,
-                'woocommerce_parent_id' => (int) ($item['parent'] ?? 0) ?: null,
-                'parent_id' => Taxon::query()->where('woocommerce_id', (int) ($item['parent'] ?? 0))->value('id'),
-                'name' => html_entity_decode((string) ($item['name'] ?? '')),
-                'slug' => Str::slug((string) ($item['slug'] ?? $item['name'] ?? "category-{$item['id']}")),
-                'description' => (string) ($item['description'] ?? ''),
-                'priority' => (int) ($item['menu_order'] ?? 0),
-                'is_active' => true,
-                'synced_at' => now(),
-            ],
-        );
-
-        if (array_key_exists('image', $item)) {
+        if (! data_get($run->options, 'skip_media', false) && array_key_exists('image', $item)) {
             $image = is_array($item['image'])
                 && (int) ($item['image']['id'] ?? 0) > 0
                 && filled($item['image']['src'] ?? null)
@@ -249,6 +237,54 @@ class WooCommerceSyncService
         }
 
         return $taxon->wasRecentlyCreated;
+    }
+
+    private function syncBrand(array $item): bool
+    {
+        return $this->syncTaxon($item, 'brands')->wasRecentlyCreated;
+    }
+
+    private function syncTaxon(array $item, string $domain): Taxon
+    {
+        $taxonomy = $this->taxonomy($domain);
+        $slug = Str::slug((string) ($item['slug'] ?? $item['name'] ?? "{$domain}-{$item['id']}"));
+        $taxon = Taxon::query()->where('woocommerce_id', (int) $item['id'])->first()
+            ?? Taxon::query()->whereBelongsTo($taxonomy)->where('slug', $slug)->first()
+            ?? new Taxon;
+
+        $attributes = [
+            'woocommerce_id' => (int) $item['id'],
+            'taxonomy_id' => $taxonomy->id,
+            'name' => html_entity_decode((string) ($item['name'] ?? '')),
+            'slug' => $slug,
+            'is_active' => true,
+            'synced_at' => now(),
+        ];
+
+        if (array_key_exists('parent', $item)) {
+            $attributes['woocommerce_parent_id'] = (int) $item['parent'] ?: null;
+            $attributes['parent_id'] = Taxon::query()->where('woocommerce_id', (int) $item['parent'])->value('id');
+        }
+
+        if (array_key_exists('description', $item)) {
+            $attributes['description'] = (string) $item['description'];
+        }
+
+        if (array_key_exists('menu_order', $item)) {
+            $attributes['priority'] = (int) $item['menu_order'];
+        }
+
+        $taxon->fill($attributes)->save();
+
+        return $taxon;
+    }
+
+    private function taxonomy(string $domain): Taxonomy
+    {
+        return match ($domain) {
+            'categories' => Taxonomy::query()->firstOrCreate(['slug' => 'category'], ['name' => 'Categorieën']),
+            'brands' => Taxonomy::query()->firstOrCreate(['slug' => 'brands'], ['name' => 'Brands']),
+        };
     }
 
     private function syncProduct(WooCommerceSyncRun $run, array $item): bool
@@ -286,17 +322,28 @@ class WooCommerceSyncService
             ],
         );
 
-        $taxonIds = Taxon::query()
-            ->whereIn('woocommerce_id', collect($item['categories'] ?? [])->pluck('id')->filter()->all())
+        collect($item['brands'] ?? [])
+            ->filter(fn (mixed $brand): bool => is_array($brand) && (int) ($brand['id'] ?? 0) > 0)
+            ->each(fn (array $brand) => $this->syncTaxon($brand, 'brands'));
+
+        $managedTaxonomyIds = Taxonomy::query()->whereIn('slug', ['category', 'brands'])->pluck('id');
+        $retainedTaxonIds = $product->taxons()
+            ->whereNotIn('taxonomy_id', $managedTaxonomyIds)
+            ->pluck('taxons.id');
+        $syncedTaxonIds = Taxon::query()
+            ->whereIn('woocommerce_id', collect([
+                ...($item['categories'] ?? []),
+                ...($item['brands'] ?? []),
+            ])->pluck('id')->filter()->all())
             ->pluck('id');
-        $product->taxons()->sync($taxonIds);
+        $product->taxons()->sync($retainedTaxonIds->merge($syncedTaxonIds)->unique());
         $this->syncProperties($product, $item['attributes'] ?? []);
         $images = collect($item['images'] ?? [])
             ->filter(fn (mixed $image): bool => is_array($image) && (int) ($image['id'] ?? 0) > 0 && filled($image['src'] ?? null))
             ->values()
             ->all();
 
-        if (is_array($item['images'] ?? null)) {
+        if (! data_get($run->options, 'skip_media', false) && is_array($item['images'] ?? null)) {
             WooCommerceSyncRun::query()->whereKey($run->id)->increment('media_pending');
             SyncWooCommerceProductMedia::dispatch($run->id, $product->id, $images);
         }
