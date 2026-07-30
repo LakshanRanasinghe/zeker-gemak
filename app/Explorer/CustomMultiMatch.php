@@ -6,30 +6,53 @@ use JeroenG\Explorer\Domain\Syntax\SyntaxInterface;
 
 class CustomMultiMatch implements SyntaxInterface
 {
-    private string $value;
-
-    private ?array $fields;
-
-    public function __construct(string $value, ?array $fields = null)
-    {
-        $this->value = $value;
-        $this->fields = $fields;
-    }
+    public function __construct(
+        private string $value,
+        private ?array $fields = null,
+    ) {}
 
     public function build(): array
     {
-        $query = [
-            'query' => $this->value,
-            'type' => 'bool_prefix',
-            'operator' => 'and',
-        ];
-
-        if ($this->fields !== null) {
-            $query['fields'] = $this->fields;
-        }
-
         return [
-            'multi_match' => $query,
+            'bool' => [
+                'should' => [
+                    [
+                        'multi_match' => [
+                            'query' => $this->value,
+                            'fields' => [
+                                'sku^50',
+                                'article_number^50',
+                                'title^20',
+                                'title_locales^20',
+                                'name^20',
+                                'name_locales^20',
+                            ],
+                            'type' => 'phrase',
+                        ],
+                    ],
+                    [
+                        'multi_match' => array_filter([
+                            'query' => $this->value,
+                            'fields' => $this->fields,
+                            'type' => 'bool_prefix',
+                            'operator' => 'and',
+                        ], static fn (mixed $value): bool => $value !== null),
+                    ],
+                    [
+                        'multi_match' => array_filter([
+                            'query' => $this->value,
+                            'fields' => $this->fields,
+                            'type' => 'best_fields',
+                            'operator' => 'and',
+                            'fuzziness' => 'AUTO:4,7',
+                            'prefix_length' => 1,
+                            'max_expansions' => 25,
+                            'boost' => 0.35,
+                        ], static fn (mixed $value): bool => $value !== null),
+                    ],
+                ],
+                'minimum_should_match' => 1,
+            ],
         ];
     }
 }

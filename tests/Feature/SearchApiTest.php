@@ -13,7 +13,7 @@ use Laravel\Scout\Engines\Engine;
 
 uses(RefreshDatabase::class);
 
-test('global search uses custom multimatch query with prefix_bool and and operator', function () {
+test('global search combines exact prefix and fuzzy matching', function () {
     Config::set('scout.driver', 'search-test-driver');
     Config::set('scout.prefix', 'business_labels_');
 
@@ -93,9 +93,28 @@ test('global search uses custom multimatch query with prefix_bool and and operat
     expect($customQuery)->toBeInstanceOf(CustomMultiMatch::class);
 
     $queryPayload = $customQuery->build();
-    expect($queryPayload['multi_match']['query'])->toBe('Inkt 8500')
-        ->and($queryPayload['multi_match']['operator'])->toBe('and')
-        ->and($queryPayload['multi_match']['type'])->toBe('bool_prefix');
+    $clauses = $queryPayload['bool']['should'];
+    expect($clauses[0]['multi_match'])
+        ->toMatchArray([
+            'query' => 'Inkt 8500',
+            'type' => 'phrase',
+        ])
+        ->and($clauses[0]['multi_match']['fields'])->toContain('sku^50', 'article_number^50')
+        ->and($clauses[1]['multi_match'])->toMatchArray([
+            'query' => 'Inkt 8500',
+            'type' => 'bool_prefix',
+            'operator' => 'and',
+        ])
+        ->and($clauses[2]['multi_match'])->toMatchArray([
+            'query' => 'Inkt 8500',
+            'type' => 'best_fields',
+            'operator' => 'and',
+            'fuzziness' => 'AUTO:4,7',
+            'prefix_length' => 1,
+            'max_expansions' => 25,
+            'boost' => 0.35,
+        ])
+        ->and($queryPayload['bool']['minimum_should_match'])->toBe(1);
 
     // Verify second query (GroupProduct)
     $groupBuilder = $capturedQueries[1];
@@ -104,8 +123,8 @@ test('global search uses custom multimatch query with prefix_bool and and operat
     $groupCustomQuery = $groupBuilder->must[0];
     expect($groupCustomQuery)->toBeInstanceOf(CustomMultiMatch::class);
 
-    $groupQueryPayload = $groupCustomQuery->build();
-    expect($groupQueryPayload['multi_match']['query'])->toBe('Inkt 8500')
-        ->and($groupQueryPayload['multi_match']['operator'])->toBe('and')
-        ->and($groupQueryPayload['multi_match']['type'])->toBe('bool_prefix');
+    $groupClauses = $groupCustomQuery->build()['bool']['should'];
+    expect($groupClauses[0]['multi_match']['type'])->toBe('phrase')
+        ->and($groupClauses[1]['multi_match']['type'])->toBe('bool_prefix')
+        ->and($groupClauses[2]['multi_match']['fuzziness'])->toBe('AUTO:4,7');
 });

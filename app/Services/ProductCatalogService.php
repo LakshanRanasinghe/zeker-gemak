@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\CatalogSearchGateway;
+use App\Explorer\CustomMultiMatch;
 use App\Models\GroupProduct;
 use App\Models\Product;
 use App\Support\ApiLocale;
@@ -330,7 +331,10 @@ class ProductCatalogService
                 'size' => $perPage,
                 '_source' => ['product_type', 'stock', 'model_id', 'is_group_product'],
                 'query' => $this->elasticQuery($filters),
-                'sort' => $this->elasticSortDefinition($filters['sort'] ?? null),
+                'sort' => $this->elasticSortDefinition(
+                    $filters['sort'] ?? null,
+                    $this->normalizeSearch($filters['search'] ?? null) !== null,
+                ),
                 'aggs' => [
                     'in_stock' => ['filter' => ['range' => ['stock' => ['gt' => 0]]]],
                 ],
@@ -366,31 +370,7 @@ class ProductCatalogService
         $query = [
             'bool' => [
                 'must' => $search
-                    ? [[
-                        'multi_match' => [
-                            'query' => $search,
-                            'fields' => [
-                                'title^10',
-                                'name^10',
-                                'slug^8',
-                                'content^5',
-                                'sku^2',
-                                'variant_skus^2',
-                                'article_number^2',
-                                'catalog_brand^2',
-                                'compatible_brands',
-                                'properties.printmethode',
-                                'properties.afwerking',
-                                'properties.lijm',
-                                'properties.detectie',
-                                'excerpt^2',
-                                'description',
-                                'product_information',
-                            ],
-                            'type' => 'bool_prefix',
-                            'operator' => 'and',
-                        ],
-                    ]]
+                    ? [(new CustomMultiMatch($search, (new Product)->getSearchableFields()))->build()]
                     : [['match_all' => new \stdClass]],
                 'filter' => $this->elasticFilterClauses($filters),
             ],
@@ -537,7 +517,7 @@ class ProductCatalogService
         ];
     }
 
-    protected function elasticSortDefinition(mixed $value): array
+    protected function elasticSortDefinition(mixed $value, bool $isSearch = false): array
     {
         return match ($value) {
             'oldest' => [
@@ -557,6 +537,13 @@ class ProductCatalogService
             ],
             'price_desc' => [
                 $this->elasticSortField('price', 'desc', 'double'),
+                $this->elasticSortField('created_at_timestamp', 'desc', 'long'),
+            ],
+            null => $isSearch ? [
+                ['_score' => ['order' => 'desc']],
+                $this->elasticSortField('in_stock', 'desc', 'boolean'),
+                $this->elasticSortField('created_at_timestamp', 'desc', 'long'),
+            ] : [
                 $this->elasticSortField('created_at_timestamp', 'desc', 'long'),
             ],
             default => [

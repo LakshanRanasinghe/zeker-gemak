@@ -636,7 +636,7 @@ it('includes retained canonical property fields in elastic search queries', func
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.slug', 'pe-white-dt');
 
-    $searchFields = data_get($gateway->payloads[0], 'body.query.bool.must.0.multi_match.fields');
+    $searchFields = data_get($gateway->payloads[0], 'body.query.bool.must.0.bool.should.1.multi_match.fields');
     expect($searchFields)
         ->toContain('catalog_brand^2')
         ->toContain('compatible_brands')
@@ -646,7 +646,15 @@ it('includes retained canonical property fields in elastic search queries', func
         ->toContain('properties.detectie')
         ->not->toContain('properties.materiaal-code^2')
         ->not->toContain('properties.materiaal')
-        ->not->toContain('properties.merken');
+        ->not->toContain('properties.merken')
+        ->and(data_get($gateway->payloads[0], 'body.query.bool.must.0.bool.should.2.multi_match.fuzziness'))->toBe('AUTO:4,7')
+        ->and(data_get($gateway->payloads[0], 'body.sort.0._score.order'))->toBe('desc')
+        ->and(data_get($gateway->payloads[0], 'body.sort.1.in_stock.order'))->toBe('desc');
+
+    $gateway->payloads = [];
+    $this->getJson('/api/products')->assertOk();
+
+    expect(data_get($gateway->payloads[0], 'body.sort.0.created_at_timestamp.order'))->toBe('desc');
 });
 
 it('normalizes retained catalog facet fields in elastic product payloads', function () {
@@ -740,7 +748,7 @@ it('returns article number in product responses and supports elastic search/filt
         ->assertOk()
         ->assertJsonPath('data.0.article_number', 'ART-SEARCH-001');
 
-    expect(data_get($gateway->payloads[0], 'body.query.bool.must.0.multi_match.fields'))
+    expect(data_get($gateway->payloads[0], 'body.query.bool.must.0.bool.should.1.multi_match.fields'))
         ->toContain('article_number^2');
 
     $gateway->payloads = [];
@@ -817,7 +825,7 @@ it('uses elastic catalog search for full product filtering when the elastic driv
                 && ($clause['range']['property_numbers.breedte']['lte'] ?? null) === 60.0
         ))->toBeTrue()
         ->and(data_get($gateway->payloads[0], 'body.sort.0.price.order'))->toBe('desc')
-        ->and(data_get($gateway->payloads[0], 'body.query.bool.must.0.multi_match.fields'))->toContain('variant_skus^2');
+        ->and(data_get($gateway->payloads[0], 'body.query.bool.must.0.bool.should.1.multi_match.fields'))->not->toContain('variant_skus^2');
 });
 
 it('filters catalog products by localized category path when the URL contains parent segments', function (): void {
