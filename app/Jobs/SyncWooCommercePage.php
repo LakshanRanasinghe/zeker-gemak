@@ -74,8 +74,8 @@ class SyncWooCommercePage implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if ($this->domain === 'categories') {
-            $sync->reconcileCategoryParents();
+        if (in_array($this->domain, ['categories', 'brands'], true)) {
+            $sync->reconcileTaxonParents($this->domain);
         }
 
         $disabled = $sync->finishDomain($run, $this->domain);

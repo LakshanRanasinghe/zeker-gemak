@@ -60,7 +60,7 @@ final class OrderTable extends PowerGridComponent
             PowerGrid::header()
                 ->includeViewOnTop('livewire.order-table-header'),
             PowerGrid::footer()
-                ->showPerPage()
+                ->showPerPage(50)
                 ->showRecordCount(),
             PowerGrid::footer()
                 ->includeViewOnBottom('livewire.order-table-modals'),

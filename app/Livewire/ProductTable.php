@@ -39,7 +39,7 @@ final class ProductTable extends PowerGridComponent
 
         return [
             PowerGrid::header()->showSearchInput()->includeViewOnTop('components.shared.select-all-banner'),
-            PowerGrid::footer()->showPerPage()->showRecordCount(),
+            PowerGrid::footer()->showPerPage(50)->showRecordCount(),
         ];
     }
 

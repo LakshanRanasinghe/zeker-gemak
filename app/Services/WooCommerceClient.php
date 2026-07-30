@@ -25,7 +25,7 @@ class WooCommerceClient
             'per_page' => max(1, min(100, $perPage)),
         ];
 
-        if (in_array($domain, ['categories', 'products'], true)) {
+        if (in_array($domain, ['categories', 'brands', 'products'], true)) {
             $query['lang'] = (string) config('services.woocommerce.locale', 'nl');
         }
 
@@ -115,6 +115,7 @@ class WooCommerceClient
     {
         return match ($domain) {
             'categories' => '/wp-json/wc/v3/products/categories',
+            'brands' => '/wp-json/wc/v3/products/brands',
             'products' => '/wp-json/wc/v3/products',
             'customers' => '/wp-json/wc/v3/customers',
             'discounts' => (string) config('services.woocommerce.discount_groups_endpoint'),

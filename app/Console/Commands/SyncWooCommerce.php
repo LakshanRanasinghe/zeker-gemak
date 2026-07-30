@@ -14,11 +14,12 @@ use Illuminate\Validation\Rule;
 class SyncWooCommerce extends Command
 {
     protected $signature = 'woocommerce:sync
-                            {domain? : discounts, categories, products, or customers}
+                            {domain? : discounts, categories, brands, products, or customers}
                             {--incremental : Sync changed products and upsert every other domain}
                             {--since= : ISO-8601 incremental starting point}
                             {--id= : Sync one WooCommerce entity}
                             {--dry-run : Fetch and validate without writing}
+                            {--skip-media : Skip product and category image downloads}
                             {--resume= : Resume a failed run}
                             {--chunk=100 : Records per API page}';
 
@@ -81,6 +82,7 @@ class SyncWooCommerce extends Command
                     'domains' => $domains,
                     'chunk' => (int) $this->option('chunk'),
                     'id' => $this->option('id') ? (int) $this->option('id') : null,
+                    'skip_media' => (bool) $this->option('skip-media'),
                     'until' => $until,
                 ],
                 'requested_since' => $since,

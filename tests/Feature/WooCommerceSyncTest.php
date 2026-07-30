@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Scout\Jobs\MakeSearchable;
 use Laravel\Scout\Jobs\RemoveFromSearch;
+use Livewire\Livewire;
+use Vanilo\Foundation\Models\Taxonomy;
 
 use function Pest\Laravel\artisan;
 use function Pest\Laravel\mock;
@@ -110,6 +112,44 @@ it('queues category media separately', function (): void {
     Queue::assertNotPushed(MakeSearchable::class);
 });
 
+it('can skip category and product media downloads', function (): void {
+    Queue::fake();
+
+    Http::fake([
+        'https://zeker-gemak.test/wp-json/wc/v3/products/categories*' => Http::response([[
+            'id' => 10,
+            'name' => 'Labels',
+            'slug' => 'labels',
+            'parent' => 0,
+            'image' => [
+                'id' => 901,
+                'src' => 'https://cdn.example.test/labels.jpg',
+            ],
+        ]], 200, ['X-WP-TotalPages' => '1']),
+        'https://zeker-gemak.test/wp-json/wc/v3/products*' => Http::response([[
+            ...wooProduct(),
+            'images' => [[
+                'id' => 902,
+                'src' => 'https://cdn.example.test/product.jpg',
+            ]],
+        ]], 200, ['X-WP-TotalPages' => '1']),
+    ]);
+
+    artisan('woocommerce:sync', ['--skip-media' => true])->assertSuccessful();
+
+    $run = WooCommerceSyncRun::query()->sole();
+    app(WooCommerceSyncService::class)->syncPage($run, 'categories', 1);
+    app(WooCommerceSyncService::class)->syncPage($run, 'products', 1);
+
+    expect(data_get($run->options, 'skip_media'))->toBeTrue()
+        ->and($run->fresh()->media_pending)->toBe(0)
+        ->and(Taxon::query()->where('woocommerce_id', 10)->exists())->toBeTrue()
+        ->and(Product::query()->where('woocommerce_id', 501)->exists())->toBeTrue();
+
+    Queue::assertNotPushed(SyncWooCommerceCategoryMedia::class);
+    Queue::assertNotPushed(SyncWooCommerceProductMedia::class);
+});
+
 it('upserts simple products by WooCommerce ID without duplicates', function (): void {
     Queue::fake();
 
@@ -132,6 +172,68 @@ it('upserts simple products by WooCommerce ID without duplicates', function (): 
         ->and(Product::query()->sole()->name)->toBe('Updated label roll');
 
     Queue::assertNotPushed(MakeSearchable::class);
+});
+
+it('creates hierarchical brands and replaces only brand assignments on re-sync', function (): void {
+    Queue::fake();
+
+    $categoryTaxonomy = Taxonomy::query()->create(['name' => 'Category', 'slug' => 'category']);
+    $category = Taxon::query()->create([
+        'woocommerce_id' => 10,
+        'taxonomy_id' => $categoryTaxonomy->id,
+        'name' => 'Labels',
+        'slug' => 'labels',
+    ]);
+    $otherTaxonomy = Taxonomy::query()->create(['name' => 'Collections', 'slug' => 'collections']);
+    $otherTaxon = Taxon::query()->create([
+        'taxonomy_id' => $otherTaxonomy->id,
+        'name' => 'Featured',
+        'slug' => 'featured',
+    ]);
+
+    Http::fake([
+        'https://zeker-gemak.test/wp-json/wc/v3/products/brands*' => Http::response([
+            ['id' => 81, 'name' => 'Zebra Printers', 'slug' => 'zebra-printers', 'parent' => 80],
+            ['id' => 80, 'name' => 'Zebra', 'slug' => 'zebra', 'parent' => 0],
+        ], 200, ['X-WP-TotalPages' => '1']),
+    ]);
+
+    $brandRun = syncRun('brands');
+    (new SyncWooCommercePage($brandRun->id, 'brands'))->handle(app(WooCommerceSyncService::class));
+
+    $parentBrand = Taxon::query()->where('woocommerce_id', 80)->sole();
+    $childBrand = Taxon::query()->where('woocommerce_id', 81)->sole();
+
+    expect($childBrand->parent_id)->toBe($parentBrand->id);
+
+    Http::fakeSequence('https://zeker-gemak.test/wp-json/wc/v3/products*')
+        ->push([[
+            ...wooProduct(),
+            'categories' => [['id' => 10, 'name' => 'Labels', 'slug' => 'labels']],
+            'brands' => [['id' => 81, 'name' => 'Zebra Printers', 'slug' => 'zebra-printers']],
+        ]], 200, ['X-WP-TotalPages' => '1'])
+        ->push([[
+            ...wooProduct(),
+            'categories' => [['id' => 10, 'name' => 'Labels', 'slug' => 'labels']],
+            'brands' => [['id' => 80, 'name' => 'Zebra', 'slug' => 'zebra']],
+        ]], 200, ['X-WP-TotalPages' => '1']);
+
+    $productRun = syncRun('products');
+    (new SyncWooCommercePage($productRun->id, 'products'))->handle(app(WooCommerceSyncService::class));
+
+    $product = Product::query()->sole();
+    $product->taxons()->attach($otherTaxon);
+
+    Livewire::test('products.create-update', ['productKey' => 'simple_'.$product->id])
+        ->assertSet('selected_brand_taxons', [$childBrand->id]);
+
+    $secondProductRun = syncRun('products');
+    (new SyncWooCommercePage($secondProductRun->id, 'products'))->handle(app(WooCommerceSyncService::class));
+
+    expect(Taxon::query()->where('taxonomy_id', $parentBrand->taxonomy_id)->count())->toBe(2)
+        ->and($childBrand->fresh()->parent_id)->toBe($parentBrand->id)
+        ->and($product->fresh()->taxons()->pluck('taxons.id')->all())
+        ->toEqualCanonicalizing([$category->id, $parentBrand->id, $otherTaxon->id]);
 });
 
 it('queues product media separately and bulk reindexing only after media', function (): void {

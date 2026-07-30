@@ -1111,7 +1111,18 @@ new class extends Component
 
         $this->uploadMedia($productToAttachMedia);
 
-        $productToAttachMedia->taxons()->sync($this->selected_taxons);
+        $managedTaxonomyIds = Taxonomy::query()
+            ->whereIn('name', ['Category', 'Brands'])
+            ->pluck('id');
+        $retainedTaxonIds = $productToAttachMedia->taxons()
+            ->whereNotIn('taxonomy_id', $managedTaxonomyIds)
+            ->pluck('taxons.id');
+        $productToAttachMedia->taxons()->sync(
+            $retainedTaxonIds
+                ->merge($this->selected_taxons)
+                ->merge($this->selected_brand_taxons)
+                ->unique()
+        );
 
 
         $this->syncProductRelations($productToAttachMedia);
