@@ -86,12 +86,18 @@
                             :current="request()->routeIs('shipping-settings.*')" wire:navigate>
                             {{ __('Shipping') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')"
-                            :current="request()->routeIs('settings.*')" wire:navigate>
-                            {{ __('Settings') }}
+                        <flux:sidebar.item icon="users" :href="route('settings.show', 'team')"
+                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'team'" wire:navigate>
+                            {{ __('Team') }}
                         </flux:sidebar.item>
-
-
+                        <flux:sidebar.item icon="star" :href="route('settings.show', 'popular-products')"
+                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'popular-products'" wire:navigate>
+                            {{ __('Popular Products') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="truck" :href="route('settings.show', 'dhl')"
+                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'dhl'" wire:navigate>
+                            {{ __('DHL') }}
+                        </flux:sidebar.item>
                     </flux:sidebar.group>
 
                     <flux:sidebar.group :heading="__('CMS')" class="grid">

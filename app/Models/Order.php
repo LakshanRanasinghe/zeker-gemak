@@ -15,12 +15,15 @@ class Order extends BaseOrder
         'shipping_address_id',
         'language',
         'original_checkout_payload',
+        'tracking_number',
+        'dhl_data',
     ];
 
     protected function casts(): array
     {
         return array_merge(parent::casts(), [
             'original_checkout_payload' => 'array',
+            'dhl_data' => 'array',
         ]);
     }
 }

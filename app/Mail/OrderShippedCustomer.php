@@ -28,6 +28,21 @@ class OrderShippedCustomer extends Mailable
     {
         return new Content(
             view: 'emails.order-shipped-customer',
+            with: [
+                'carrierName' => 'DHL',
+                'trackingUrl' => $this->trackingUrl(),
+            ],
+        );
+    }
+
+    private function trackingUrl(): string
+    {
+        $postcode = preg_replace('/\s+/', '', strtoupper((string) $this->order->shippingAddress?->postalcode));
+
+        return sprintf(
+            'https://my.dhlecommerce.nl/home/tracktrace/%s/%s',
+            rawurlencode((string) $this->order->tracking_number),
+            rawurlencode((string) $postcode),
         );
     }
 }

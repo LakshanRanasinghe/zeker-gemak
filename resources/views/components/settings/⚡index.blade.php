@@ -3,9 +3,11 @@
 use App\Models\TeamMember;
 use App\Models\Product;
 use App\Models\PopularProduct;
+use App\Models\DhlSetting;
 use Flux\Flux;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -23,10 +25,16 @@ new class extends Component {
 
     public array $searchResults = [];
 
-    public function mount(): void
+    public array $dhl = [];
+
+    public bool $hasDhlApiKey = false;
+
+    public function mount(string $tab = 'team'): void
     {
+        $this->tab = $tab === 'popular-products' ? 'products' : $tab;
         $this->loadTeamMembers();
         $this->loadPopularProducts();
+        $this->loadDhlSettings();
     }
 
     public function updatedSearch(): void
@@ -144,6 +152,49 @@ new class extends Component {
         if ($this->tab === 'team') {
             $this->saveTeam();
         }
+
+        if ($this->tab === 'dhl') {
+            $this->saveDhl();
+        }
+    }
+
+    protected function saveDhl(): void
+    {
+        $validated = $this->validate([
+            'dhl.user_id' => ['required', 'string', 'max:255'],
+            'dhl.api_key' => [Rule::requiredIf(! $this->hasDhlApiKey), 'nullable', 'string', 'max:255'],
+            'dhl.account_id' => ['required', 'string', 'max:50'],
+            'dhl.sender.company' => ['required', 'string', 'max:35'],
+            'dhl.sender.first_name' => ['nullable', 'string', 'max:30'],
+            'dhl.sender.last_name' => ['nullable', 'string', 'max:30'],
+            'dhl.sender.street' => ['required', 'string', 'max:40'],
+            'dhl.sender.house_number' => ['required', 'string', 'max:10'],
+            'dhl.sender.house_number_addition' => ['nullable', 'string', 'max:10'],
+            'dhl.sender.postal_code' => ['required', 'string', 'max:12'],
+            'dhl.sender.city' => ['required', 'string', 'max:30'],
+            'dhl.sender.country_code' => ['required', 'string', 'size:2'],
+            'dhl.sender.email' => ['required', 'email', 'max:80'],
+            'dhl.sender.phone' => ['nullable', 'string', 'max:25'],
+            'dhl.sender.vat_number' => ['nullable', 'string', 'max:20'],
+            'dhl.sender.eori_number' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $setting = DhlSetting::query()->first() ?? new DhlSetting;
+        $configuration = array_replace_recursive(
+            (array) $setting->configuration,
+            collect($validated['dhl'])->except('api_key')->all(),
+        );
+
+        if (filled($validated['dhl']['api_key'])) {
+            $configuration['key'] = $validated['dhl']['api_key'];
+        }
+
+        $setting->configuration = $configuration;
+        $setting->save();
+
+        $this->loadDhlSettings();
+
+        Flux::toast(__('DHL settings saved.'), variant: 'success');
     }
 
     protected function saveTeam(): void
@@ -262,6 +313,34 @@ new class extends Component {
             ->all();
     }
 
+    protected function loadDhlSettings(): void
+    {
+        $configuration = DhlSetting::resolved();
+        $sender = (array) ($configuration['sender'] ?? []);
+
+        $this->hasDhlApiKey = filled($configuration['key'] ?? null);
+        $this->dhl = [
+            'user_id' => (string) ($configuration['user_id'] ?? ''),
+            'api_key' => '',
+            'account_id' => (string) ($configuration['account_id'] ?? ''),
+            'sender' => [
+                'company' => (string) ($sender['company'] ?? 'Deurbeslaggigant'),
+                'first_name' => (string) ($sender['first_name'] ?? 'Deurbeslaggigant'),
+                'last_name' => (string) ($sender['last_name'] ?? ''),
+                'street' => (string) ($sender['street'] ?? ''),
+                'house_number' => (string) ($sender['house_number'] ?? ''),
+                'house_number_addition' => (string) ($sender['house_number_addition'] ?? ''),
+                'postal_code' => (string) ($sender['postal_code'] ?? ''),
+                'city' => (string) ($sender['city'] ?? ''),
+                'country_code' => (string) ($sender['country_code'] ?? 'NL'),
+                'email' => (string) ($sender['email'] ?? ''),
+                'phone' => (string) ($sender['phone'] ?? ''),
+                'vat_number' => (string) ($sender['vat_number'] ?? ''),
+                'eori_number' => (string) ($sender['eori_number'] ?? ''),
+            ],
+        ];
+    }
+
     protected function emptyTeamMember(): array
     {
         return [
@@ -289,20 +368,25 @@ new class extends Component {
 <div class="space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <flux:heading size="xl" level="1">{{ __('Settings') }}</flux:heading>
+            <flux:heading size="xl" level="1">
+                {{ match ($tab) {
+                    'team' => __('Team'),
+                    'products' => __('Popular Products'),
+                    'dhl' => __('DHL'),
+                } }}
+            </flux:heading>
             <flux:subheading size="lg">
-                {{ __('Manage team members and storefront settings.') }}
+                {{ match ($tab) {
+                    'team' => __('Manage the team shown on the storefront.'),
+                    'products' => __('Manage the popular products shown on the storefront.'),
+                    'dhl' => __('Manage the DHL account and sender details.'),
+                } }}
             </flux:subheading>
         </div>
     </div>
 
-    <flux:tab.group>
-        <flux:tabs wire:model.live="tab">
-            <flux:tab name="team" icon="users">{{ __('Manage Team') }}</flux:tab>
-            <flux:tab name="products" icon="star">{{ __('Popular Products') }}</flux:tab>
-        </flux:tabs>
-
-        <flux:tab.panel name="team" class="pt-6">
+    @if ($tab === 'team')
+        <div class="pt-6">
             <form wire:submit="save" class="space-y-6">
                 <flux:card class="space-y-4">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -400,9 +484,10 @@ new class extends Component {
                     </flux:button>
                 </div>
             </form>
-        </flux:tab.panel>
+        </div>
+    @elseif ($tab === 'products')
 
-        <flux:tab.panel name="products" class="pt-6 space-y-6">
+        <div class="pt-6 space-y-6">
             <flux:card class="space-y-4">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -503,6 +588,59 @@ new class extends Component {
                     </div>
                 @endforelse
             </div>
-        </flux:tab.panel>
-    </flux:tab.group>
+        </div>
+    @else
+
+        <div class="pt-6">
+            <form wire:submit="save" class="space-y-6">
+                <flux:card class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">{{ __('DHL account') }}</flux:heading>
+                        <flux:text class="mt-2">
+                            {{ __('Credentials used only by Zeker Gemak for DHL shipping-label generation.') }}
+                        </flux:text>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <flux:input wire:model="dhl.user_id" label="{{ __('User ID') }}" />
+                        <flux:input wire:model="dhl.account_id" label="{{ __('Account ID') }}" />
+                        <flux:input wire:model="dhl.api_key" type="password" viewable
+                            label="{{ __('API key') }}"
+                            placeholder="{{ $hasDhlApiKey ? __('Saved — leave blank to keep it') : __('Required') }}" />
+                    </div>
+                </flux:card>
+
+                <flux:card class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">{{ __('DHL sender') }}</flux:heading>
+                        <flux:text class="mt-2">{{ __('Sender details printed on DHL labels.') }}</flux:text>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <flux:input wire:model="dhl.sender.company" label="{{ __('Company') }}" />
+                        <flux:input wire:model="dhl.sender.email" type="email" label="{{ __('Email') }}" />
+                        <flux:input wire:model="dhl.sender.first_name" label="{{ __('First name') }}" />
+                        <flux:input wire:model="dhl.sender.last_name" label="{{ __('Last name') }}" />
+                        <flux:input wire:model="dhl.sender.street" label="{{ __('Street') }}" />
+                        <div class="grid grid-cols-2 gap-4">
+                            <flux:input wire:model="dhl.sender.house_number" label="{{ __('House number') }}" />
+                            <flux:input wire:model="dhl.sender.house_number_addition" label="{{ __('Addition') }}" />
+                        </div>
+                        <flux:input wire:model="dhl.sender.postal_code" label="{{ __('Postal code') }}" />
+                        <flux:input wire:model="dhl.sender.city" label="{{ __('City') }}" />
+                        <flux:input wire:model="dhl.sender.country_code" label="{{ __('Country code') }}" />
+                        <flux:input wire:model="dhl.sender.phone" label="{{ __('Phone') }}" />
+                        <flux:input wire:model="dhl.sender.vat_number" label="{{ __('VAT number') }}" />
+                        <flux:input wire:model="dhl.sender.eori_number" label="{{ __('EORI number') }}" />
+                    </div>
+                </flux:card>
+
+                <div class="flex justify-end">
+                    <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled">
+                        {{ __('Save DHL settings') }}
+                    </flux:button>
+                </div>
+            </form>
+        </div>
+    @endif
 </div>

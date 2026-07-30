@@ -36,11 +36,16 @@ return [
 
     'shipped' => [
         'subject' => 'Your order #:number has been shipped!',
-        'title_tag' => 'Order Shipped – Business Labels',
+        'title_tag' => 'Order Shipped – Zeker Gemak',
         'heading' => 'Order Shipped!',
         'intro' => 'Great news! Your order is on its way to you.',
         'greeting' => 'Hi :name,',
         'summary_intro' => 'your order has been shipped. Here are the delivery details.',
+        'tracking_title' => 'Track your order',
+        'carrier' => 'Carrier',
+        'tracking_number' => 'Tracking number',
+        'postcode' => 'Postal code',
+        'track_button' => 'Track your parcel',
     ],
 
     'cancelled' => [

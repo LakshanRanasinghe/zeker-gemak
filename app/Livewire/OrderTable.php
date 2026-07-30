@@ -2,18 +2,25 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\ShippingDocumentException;
+use App\Services\DropboxClient;
+use App\Services\GenerateDhlShippingDocuments;
 use App\Services\OrderExportService;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
 use PowerComponents\LivewirePowerGrid\Button;
 use PowerComponents\LivewirePowerGrid\Column;
 use PowerComponents\LivewirePowerGrid\Facades\PowerGrid;
 use PowerComponents\LivewirePowerGrid\PowerGridComponent;
 use PowerComponents\LivewirePowerGrid\PowerGridFields;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 use Vanilo\Order\Contracts\Order;
 use Vanilo\Order\Models\OrderProxy;
 
@@ -26,6 +33,16 @@ final class OrderTable extends PowerGridComponent
     public string $sortDirection = 'desc';
 
     public ?int $orderToShipId = null;
+
+    public ?int $labelOrderId = null;
+
+    public array $labelRecipient = [];
+
+    public string $labelCarrier = 'DHL-PARCEL';
+
+    public string $labelParcelType = 'SMALL';
+
+    public string $labelShippingMethod = 'DFY-B2C';
 
     public string $bulkStatus = '';
 
@@ -180,6 +197,8 @@ final class OrderTable extends PowerGridComponent
 
     public function actions(Order $row): array
     {
+        $labelPath = data_get($row->dhl_data, 'label_path');
+
         return [
             Button::add('edit')
                 ->slot(__('Edit'))
@@ -204,7 +223,148 @@ final class OrderTable extends PowerGridComponent
                 ->class('px-2 py-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-sm shadow-sm hover:bg-green-100 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 transition-colors')
                 ->call('confirmShipOrder', [$row->id])
                 ->can($row->status->value() !== 'shipped' && $row->status->value() !== 'completed' && $row->status->value() !== 'cancelled'),
+
+            Button::add('generate-shipping-label')
+                ->slot(__('Generate shipping label'))
+                ->class('px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md text-sm shadow-sm hover:bg-yellow-100 dark:hover:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 transition-colors')
+                ->call('openShippingLabelModal', [$row->id])
+                ->can($row->status->value() !== 'shipped' && $row->status->value() !== 'completed' && $row->status->value() !== 'cancelled'),
+
+            Button::add('download-shipping-label')
+                ->slot(__('Download label'))
+                ->class('px-2 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md text-sm shadow-sm hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition-colors')
+                ->call('downloadShippingLabel', [$row->id])
+                ->can(is_string($labelPath)
+                    && str_starts_with($labelPath, '/Labels Arthur/')
+                    && str_ends_with($labelPath, '.pdf')),
         ];
+    }
+
+    public function openShippingLabelModal(int|array $id): void
+    {
+        if (is_array($id)) {
+            $id = $id[0] ?? $id['id'] ?? null;
+        }
+
+        $orderClass = OrderProxy::modelClass();
+        $order = $orderClass::with(['billpayer.address', 'shippingAddress'])->findOrFail((int) $id);
+        $address = $order->shippingAddress ?? $order->billpayer?->address;
+        [$street, $houseNumber, $addition] = $this->splitAddress(
+            (string) $address?->address,
+            (string) $address?->address2,
+        );
+
+        $this->resetValidation();
+        $this->labelOrderId = $order->id;
+        $this->labelRecipient = [
+            'first_name' => (string) ($address?->firstname ?: $order->billpayer?->firstname),
+            'last_name' => (string) ($address?->lastname ?: $order->billpayer?->lastname),
+            'company' => (string) ($address?->company_name ?: $order->billpayer?->company_name),
+            'is_business' => false,
+            'email' => (string) $order->billpayer?->email,
+            'phone' => (string) ($address?->phone ?: $order->billpayer?->phone),
+            'street' => $street,
+            'house_number' => $houseNumber,
+            'addition' => $addition,
+            'postal_code' => (string) $address?->postalcode,
+            'city' => (string) $address?->city,
+            'country_code' => strtoupper((string) $address?->country_id),
+        ];
+        $this->labelCarrier = 'DHL-PARCEL';
+        $this->labelParcelType = 'SMALL';
+        $this->labelShippingMethod = 'DFY-B2C';
+
+        Flux::modal('shipping-label-modal')->show();
+    }
+
+    public function updated(string $propertyName): void
+    {
+        if ($propertyName === 'labelRecipient.is_business' && $this->labelCarrier === 'DHL-PARCEL') {
+            $this->labelShippingMethod = $this->labelRecipient['is_business'] ? 'EPL' : 'DFY-B2C';
+        }
+    }
+
+    public function generateShippingLabel(): void
+    {
+        $validated = $this->validate([
+            'labelOrderId' => ['required', 'integer'],
+            'labelRecipient.first_name' => ['required', 'string', 'max:30'],
+            'labelRecipient.last_name' => ['required', 'string', 'max:30'],
+            'labelRecipient.company' => ['nullable', 'string', 'max:35'],
+            'labelRecipient.is_business' => ['required', 'boolean'],
+            'labelRecipient.email' => ['required', 'email', 'max:80'],
+            'labelRecipient.phone' => ['nullable', 'string', 'max:25'],
+            'labelRecipient.street' => ['required', 'string', 'max:40'],
+            'labelRecipient.house_number' => ['required', 'string', 'max:10'],
+            'labelRecipient.addition' => ['nullable', 'string', 'max:10'],
+            'labelRecipient.postal_code' => ['required', 'string', 'max:12'],
+            'labelRecipient.city' => ['required', 'string', 'max:30'],
+            'labelRecipient.country_code' => ['required', 'string', 'size:2'],
+            'labelCarrier' => ['required', Rule::in(['DHL-PARCEL', 'DHL-EXPRESS'])],
+            'labelParcelType' => ['required', 'string', 'max:50'],
+            'labelShippingMethod' => ['required', 'string', 'max:50'],
+        ]);
+
+        try {
+            $orderClass = OrderProxy::modelClass();
+            $order = $orderClass::findOrFail($validated['labelOrderId']);
+
+            app(GenerateDhlShippingDocuments::class)->handle($order, [
+                'recipient' => $validated['labelRecipient'],
+                'carrier' => $validated['labelCarrier'],
+                'parcel_type' => $validated['labelParcelType'],
+                'shipping_method' => $validated['labelShippingMethod'],
+            ]);
+        } catch (ShippingDocumentException $exception) {
+            Flux::toast($exception->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::modal('shipping-label-modal')->close();
+        $this->labelOrderId = null;
+
+        Flux::toast(__('Shipping label generated and the order was marked as shipped.'), variant: 'success');
+    }
+
+    public function downloadShippingLabel(int|array $id): ?StreamedResponse
+    {
+        if (is_array($id)) {
+            $id = $id[0] ?? $id['id'] ?? null;
+        }
+
+        $orderClass = OrderProxy::modelClass();
+        $order = $orderClass::findOrFail((int) $id);
+        $labelPath = (string) data_get($order->dhl_data, 'label_path');
+
+        if ($labelPath === '') {
+            Flux::toast(__('No generated shipping label was found for this order.'), variant: 'warning');
+
+            return null;
+        }
+
+        try {
+            $pdf = app(DropboxClient::class)->get($labelPath);
+        } catch (Throwable $exception) {
+            Log::error('Zeker Gemak DHL label download failed', [
+                'order_id' => $order->id,
+                'label_path' => $labelPath,
+                'error' => $exception->getMessage(),
+                'exception' => $exception,
+            ]);
+            Flux::toast(__('The shipping label could not be downloaded from Dropbox.'), variant: 'danger');
+
+            return null;
+        }
+
+        $safeNumber = preg_replace('/[^A-Za-z0-9._-]/', '-', (string) $order->number);
+
+        return response()->streamDownload(function () use ($pdf): void {
+            echo $pdf;
+        }, "DHL-label-{$safeNumber}.pdf", [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function bulkDelete(): void
@@ -460,5 +620,21 @@ final class OrderTable extends PowerGridComponent
     {
         $order->status = $status;
         $order->save();
+    }
+
+    /**
+     * @return array{string, string, string}
+     */
+    private function splitAddress(string $address, string $address2): array
+    {
+        if (preg_match('/^(.+?)\s+(\d+[A-Za-z]?)(?:[-\s\/]\s*(.+))?$/u', trim($address), $matches) !== 1) {
+            return [trim($address), '', trim($address2)];
+        }
+
+        return [
+            trim($matches[1]),
+            trim($matches[2]),
+            trim((string) ($matches[3] ?? $address2)),
+        ];
     }
 }

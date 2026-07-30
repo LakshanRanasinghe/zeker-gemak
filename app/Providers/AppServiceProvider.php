@@ -76,8 +76,6 @@ class AppServiceProvider extends ServiceProvider
             return $this->asset("resources/audio/{$asset}");
         });
 
-        OrderProxy::observe(OrderObserver::class);
-
         config([
             'vanilo.order.number.sequential_number' => [
                 'start_sequence_from' => 1,
@@ -106,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
             \Vanilo\Order\Contracts\Order::class,
             Order::class
         );
+        OrderProxy::observe(OrderObserver::class);
 
         $this->app->concord->registerModel(
             \Vanilo\Order\Contracts\OrderItem::class,

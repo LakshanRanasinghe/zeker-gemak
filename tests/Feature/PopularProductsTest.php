@@ -23,8 +23,8 @@ test('authenticated admins can see popular products tab', function () {
 
     Livewire::test('settings.index')
         ->set('tab', 'products')
-        ->assertSee('Popular Products')
-        ->assertSee('Select products to feature');
+        ->assertSee('Populaire producten')
+        ->assertSee('Selecteer producten om');
 });
 
 test('products can be searched and added to popular products', function () {

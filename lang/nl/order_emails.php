@@ -36,11 +36,16 @@ return [
 
     'shipped' => [
         'subject' => 'Je bestelling #:number is verzonden!',
-        'title_tag' => 'Bestelling verzonden – Business Labels',
+        'title_tag' => 'Bestelling verzonden – Zeker Gemak',
         'heading' => 'Bestelling verzonden!',
         'intro' => 'Goed nieuws! Je bestelling is onderweg naar je.',
         'greeting' => 'Hallo :name,',
         'summary_intro' => 'je bestelling is verzonden. Hieronder vind je de details van de levering.',
+        'tracking_title' => 'Volg je bestelling',
+        'carrier' => 'Vervoerder',
+        'tracking_number' => 'Track & trace-code',
+        'postcode' => 'Postcode',
+        'track_button' => 'Volg je pakket',
     ],
 
     'cancelled' => [

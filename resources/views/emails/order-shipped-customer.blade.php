@@ -18,8 +18,8 @@
         .card { background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 40px rgba(234,88,12,0.10), 0 2px 8px rgba(0,0,0,0.06); }
 
         .header {
-            background-color: #F08B01;
-            background: linear-gradient(145deg, #ea580c 0%, #f97316 55%, #fb923c 100%);
+            background-color: #047857;
+            background: linear-gradient(145deg, #047857 0%, #059669 55%, #10b981 100%);
             padding: 48px 40px 40px;
             text-align: center;
             position: relative;
@@ -40,8 +40,8 @@
         .header p { color:rgba(255,255,255,0.88); font-size:15px; line-height:1.5; }
         .order-pill { display:inline-block; background:rgba(255,255,255,0.22); color:#fff; font-size:14px; font-weight:700; padding:6px 20px; border-radius:999px; margin-top:14px; }
 
-        .banner { background:#fff7ed; border-bottom:1px solid #fed7aa; padding:24px 40px; text-align:center; }
-        .banner p { margin:0; font-size:15px; color:#78350f; line-height:1.6; }
+        .banner { background:#ecfdf5; border-bottom:1px solid #a7f3d0; padding:24px 40px; text-align:center; }
+        .banner p { margin:0; font-size:15px; color:#065f46; line-height:1.6; }
 
         .section { padding:32px 40px; border-bottom:1px solid #f5f0eb; }
         .section:last-child { border-bottom:none; }
@@ -58,6 +58,8 @@
 
         .address-box { background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:20px; font-size:14px; line-height:1.7; }
         .address-box strong { display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.8px; color:#ea580c; margin-bottom:8px; }
+        .tracking { text-align:center; }
+        .tracking a { background:#047857; border-radius:8px; color:#fff; display:inline-block; font-size:14px; font-weight:700; margin-top:16px; padding:12px 20px; text-decoration:none; }
 
         .footer { background:#fafaf9; border-top:1px solid #e7e5e4; padding:24px 40px; text-align:center; }
         .footer p { font-size:12px; color:#a8a29e; line-height:1.7; margin:0; }
@@ -105,6 +107,20 @@
                 {{ __('order_emails.shipped.summary_intro') }}
             </p>
         </div>
+
+        @if($order->tracking_number)
+            <div class="section tracking">
+                <p class="section-title">{{ __('order_emails.shipped.tracking_title') }}</p>
+                <p>
+                    {{ __('order_emails.shipped.carrier') }}: <strong>{{ $carrierName ?? 'DHL' }}</strong><br>
+                    {{ __('order_emails.shipped.tracking_number') }}: <strong>{{ $order->tracking_number }}</strong>
+                    @if($order->shippingAddress?->postalcode)
+                        <br>{{ __('order_emails.shipped.postcode') }}: <strong>{{ $order->shippingAddress->postalcode }}</strong>
+                    @endif
+                </p>
+                <a href="{{ $trackingUrl ?? '#' }}">{{ __('order_emails.shipped.track_button') }}</a>
+            </div>
+        @endif
 
         <div class="section">
             <p class="section-title">{{ __('order_emails.common.order_summary') }}</p>
@@ -189,7 +205,7 @@
                 {{ __('order_emails.common.questions') }}
             </p>
             <p style="margin-top:12px;">
-                &copy;&nbsp;{{ date('Y') }}&nbsp;Business&nbsp;Labels. {{ __('order_emails.common.rights') }}
+                &copy;&nbsp;{{ date('Y') }}&nbsp;Zeker&nbsp;Gemak. {{ __('order_emails.common.rights') }}
                 <span class="dot"></span>
                 <a href="{{ config('app.url') }}" target="_blank">{{ config('app.company.website') }}</a>
                 <span class="dot"></span>
