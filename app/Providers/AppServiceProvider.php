@@ -64,9 +64,9 @@ class AppServiceProvider extends ServiceProvider
             SendOrderEmailsJob::dispatch($event->getOrder(), 'placed', null, ApiLocale::current())->afterCommit();
         });
 
-        Gate::before(function ($user, $ability) {
-            return $user->hasRole('super-admin') ? true : null;
-        });
+        // Gate::before(function ($user, $ability) {
+        //     return $user->hasRole('super-admin') ? true : null;
+        // });
 
         Vite::macro('image', function ($asset) {
             return $this->asset("resources/images/{$asset}");
