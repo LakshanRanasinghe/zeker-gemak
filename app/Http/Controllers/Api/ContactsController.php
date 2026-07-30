@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\RetouraanvraagRequest;
 use App\Mail\CallbackRequestAdmin;
 use App\Mail\ContactRequestAdmin;
 use App\Mail\CustomMadeRequestAdmin;
 use App\Mail\RecycleRequestAdmin;
+use App\Mail\RetouraanvraagAdmin;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Log;
 use Mail;
 
@@ -74,6 +77,22 @@ class ContactsController extends Controller
 
         return response()->json([
             'message' => 'Your recycle request has been sent successfully.',
+        ]);
+    }
+
+    public function retouraanvraag(RetouraanvraagRequest $request)
+    {
+        $validated = $request->validated();
+        $rmaNumber = 'RMA-'.now()->year.'-'.Str::upper(Str::random(5));
+
+        Mail::to(config('app.admin_emails'))->send(
+            new RetouraanvraagAdmin($validated, $rmaNumber, $request->file('file'))
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Retouraanvraag succesvol ontvangen.',
+            'rma_number' => $rmaNumber,
         ]);
     }
 }

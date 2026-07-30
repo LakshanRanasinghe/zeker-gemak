@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\ShippingRuleController;
+use App\Http\Controllers\Api\SubscriptionEmailController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\UserController;
@@ -110,6 +111,10 @@ Route::post('/drawer-booking', [ContactsController::class, 'drawerBooking'])->na
 Route::post('/drawer-contact', [ContactsController::class, 'drawerContact'])->name('drawer-contact');
 Route::post('/custom-made-request', [ContactsController::class, 'customMadeRequest'])->name('custom-made-request');
 Route::post('/recycle-request', [ContactsController::class, 'recycleRequest'])->name('recycle-request');
+Route::post('/retouraanvraag', [ContactsController::class, 'retouraanvraag'])->name('retouraanvraag');
+Route::post('/subscription-emails', [SubscriptionEmailController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('subscription-emails.store');
 
 Route::get('/availabilities', [AvailabilityController::class, 'index'])->name('availabilities.index');
 Route::get('/shipping-methods', [ShippingController::class, 'index'])->name('shipping-methods.index');
