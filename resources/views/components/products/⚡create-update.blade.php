@@ -317,10 +317,10 @@ new class extends Component
         $this->excerpt = (string) $model->excerpt;
         $this->content = (string) $model->content;
         $this->description = (string) $model->description;
-        $this->meta_title_nl = (string) ($model->meta_title_nl ?? '');
-        $this->meta_title_en = (string) ($model->meta_title_en ?? '');
-        $this->meta_description_nl = (string) ($model->meta_description_nl ?? '');
-        $this->meta_description_en = (string) ($model->meta_description_en ?? '');
+        $this->meta_title_nl = $this->localizedSeoValue($model, 'nl', 'meta_title');
+        $this->meta_title_en = $this->localizedSeoValue($model, 'en', 'meta_title');
+        $this->meta_description_nl = $this->localizedSeoValue($model, 'nl', 'meta_description');
+        $this->meta_description_en = $this->localizedSeoValue($model, 'en', 'meta_description');
         $this->packaging_unit = $model->packaging_unit !== null ? (int) $model->packaging_unit : null;
         $this->delivery_dates_no_stock = $model->delivery_dates_no_stock !== null ? (int) $model->delivery_dates_no_stock : null;
         $this->delivery_dates_in_stock = $model->delivery_dates_in_stock !== null ? (int) $model->delivery_dates_in_stock : null;
@@ -393,6 +393,10 @@ new class extends Component
 
                     $this->translations[$locale][$field] = (string) $value;
                 }
+
+                foreach (['meta_title', 'meta_description'] as $field) {
+                    $this->translations[$locale][$field] = (string) ($fields[$field] ?? $translation->{$field} ?? $this->translations[$locale][$field] ?? '');
+                }
             }
         }
 
@@ -400,6 +404,34 @@ new class extends Component
         $this->translations['en']['meta_title'] = $this->meta_title_en;
         $this->translations['nl']['meta_description'] = $this->meta_description_nl;
         $this->translations['en']['meta_description'] = $this->meta_description_en;
+    }
+
+    protected function localizedSeoValue($model, string $locale, string $field): string
+    {
+        $localizedColumn = "{$field}_{$locale}";
+        $localizedValue = (string) ($model->{$localizedColumn} ?? '');
+
+        if (trim($localizedValue) !== '') {
+            return $localizedValue;
+        }
+
+        if ($locale === $this->mainLocale()) {
+            return (string) ($model->getRawOriginal($field) ?? $model->{$field} ?? '');
+        }
+
+        $translation = Translation::findByModel($model, $locale);
+
+        if (! $translation) {
+            return '';
+        }
+
+        $fields = is_array($translation->fields) ? $translation->fields : [];
+
+        if (isset($fields['fields']) && is_array($fields['fields'])) {
+            $fields = array_merge($fields, $fields['fields']);
+        }
+
+        return (string) ($fields[$field] ?? $translation->{$field} ?? '');
     }
 
     protected function rules()
