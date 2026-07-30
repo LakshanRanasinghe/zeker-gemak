@@ -292,6 +292,7 @@ class WooCommerceSyncService
         $woocommerceId = (int) $item['id'];
         $sku = trim((string) ($item['sku'] ?? '')) ?: "WC-{$woocommerceId}";
         $existingSku = Product::query()->where('sku', $sku)->where('woocommerce_id', '!=', $woocommerceId)->first();
+        $seoMetadata = $this->seoMetadata($item);
 
         if ($existingSku !== null) {
             throw new RuntimeException("WooCommerce product #{$woocommerceId} conflicts with SKU [{$sku}].");
@@ -318,6 +319,10 @@ class WooCommerceSyncService
                 'product_type' => 'simple',
                 'tax_category_id' => $this->taxCategoryId($item),
                 'discount_group_id' => $this->discountGroupId($item),
+                'meta_title' => $seoMetadata['title'],
+                'meta_title_nl' => $seoMetadata['title'],
+                'meta_description' => $seoMetadata['description'],
+                'meta_description_nl' => $seoMetadata['description'],
                 'synced_at' => now(),
             ],
         );
@@ -599,6 +604,49 @@ class WooCommerceSyncService
         }
 
         return (int) $taxCategoryId;
+    }
+
+    /**
+     * @return array{title: ?string, description: ?string}
+     */
+    private function seoMetadata(array $item): array
+    {
+        $meta = collect($item['meta_data'] ?? [])
+            ->filter(fn (mixed $row): bool => is_array($row))
+            ->mapWithKeys(fn (array $row): array => [(string) ($row['key'] ?? '') => $row['value'] ?? null]);
+
+        return [
+            'title' => $this->firstString([
+                $meta->get('_yoast_wpseo_title'),
+                data_get($item, 'yoast_head_json.title'),
+                $meta->get('meta-title'),
+            ]),
+            'description' => $this->firstString([
+                $meta->get('_yoast_wpseo_metadesc'),
+                data_get($item, 'yoast_head_json.description'),
+                $meta->get('meta-description'),
+            ]),
+        ];
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     */
+    private function firstString(array $values): ?string
+    {
+        foreach ($values as $value) {
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $string = html_entity_decode(trim((string) $value));
+
+            if ($string !== '') {
+                return $string;
+            }
+        }
+
+        return null;
     }
 
     private function disableOne(string $domain, int $woocommerceId): void

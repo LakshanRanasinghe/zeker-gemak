@@ -174,6 +174,38 @@ it('upserts simple products by WooCommerce ID without duplicates', function (): 
     Queue::assertNotPushed(MakeSearchable::class);
 });
 
+it('imports product seo metadata from WooCommerce meta fields', function (): void {
+    Queue::fake();
+
+    Http::fake([
+        'https://zeker-gemak.test/wp-json/wc/v3/products*' => Http::response([
+            [
+                ...wooProduct(),
+                'meta_data' => [
+                    ['key' => '_yoast_wpseo_title', 'value' => 'Yoast SEO Title'],
+                    ['key' => '_yoast_wpseo_metadesc', 'value' => 'Yoast SEO Description'],
+                    ['key' => 'meta-title', 'value' => 'Custom SEO Title'],
+                    ['key' => 'meta-description', 'value' => 'Custom SEO Description'],
+                ],
+                'yoast_head_json' => [
+                    'title' => 'Rendered SEO Title',
+                    'description' => 'Rendered SEO Description',
+                ],
+            ],
+        ], 200, ['X-WP-TotalPages' => '1']),
+    ]);
+
+    $run = syncRun('products');
+    (new SyncWooCommercePage($run->id, 'products'))->handle(app(WooCommerceSyncService::class));
+
+    $product = Product::query()->sole();
+
+    expect($product->getRawOriginal('meta_title'))->toBe('Yoast SEO Title')
+        ->and($product->getRawOriginal('meta_title_nl'))->toBe('Yoast SEO Title')
+        ->and($product->getRawOriginal('meta_description'))->toBe('Yoast SEO Description')
+        ->and($product->getRawOriginal('meta_description_nl'))->toBe('Yoast SEO Description');
+});
+
 it('creates hierarchical brands and replaces only brand assignments on re-sync', function (): void {
     Queue::fake();
 
