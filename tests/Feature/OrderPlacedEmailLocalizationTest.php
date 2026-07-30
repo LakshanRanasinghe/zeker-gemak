@@ -2,11 +2,13 @@
 
 use App\Http\Requests\StoreOrderRequest;
 use App\Jobs\SendOrderEmailsJob;
+use App\Mail\OrderPlacedAdmin;
 use App\Mail\OrderPlacedCustomer;
 use App\Support\ApiLocale;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Validator;
 use Vanilo\Order\Contracts\OrderFactory;
@@ -24,6 +26,7 @@ it('validates order language values', function (?string $lang, bool $passes) {
     $request = StoreOrderRequest::create('/api/guest/orders', 'POST', [
         'lang' => $lang,
         'status' => 'new',
+        'payment_method' => 'ideal',
         'billing_firstname' => 'Test',
         'billing_address' => '123 Main',
         'billing_city' => 'Amsterdam',
@@ -99,4 +102,27 @@ it('prefers the stored order language for customer emails', function () {
     $method->setAccessible(true);
 
     expect($method->invoke($job))->toBe('nl');
+});
+
+it('sends placed order notifications to every configured admin email', function () {
+    Mail::fake();
+    config(['app.admin_emails' => ['first-admin@example.com', 'second-admin@example.com']]);
+
+    $order = app(OrderFactory::class)->createFromDataArray([
+        'status' => 'pending',
+        'language' => 'nl',
+    ], [[
+        'product_type' => 'product',
+        'product_id' => 1,
+        'name' => 'Test Label',
+        'price' => 12,
+        'quantity' => 1,
+    ]]);
+
+    (new SendOrderEmailsJob($order, 'placed'))->handle();
+
+    Mail::assertSent(OrderPlacedAdmin::class, function (OrderPlacedAdmin $mail): bool {
+        return $mail->hasTo('first-admin@example.com')
+            && $mail->hasTo('second-admin@example.com');
+    });
 });

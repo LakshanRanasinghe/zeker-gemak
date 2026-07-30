@@ -86,6 +86,10 @@
                             :current="request()->routeIs('shipping-settings.*')" wire:navigate>
                             {{ __('Shipping') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="globe-europe-africa" :href="route('shipping-cost.index')"
+                            :current="request()->routeIs('shipping-cost.*')" wire:navigate>
+                            {{ __('Shipping Costs') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="users" :href="route('settings.show', 'team')"
                             :current="request()->routeIs('settings.show') && request()->route('tab') === 'team'" wire:navigate>
                             {{ __('Team') }}

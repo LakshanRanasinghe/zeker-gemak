@@ -84,6 +84,9 @@ Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->
     Route::livewire('shipping-settings', 'shipping-settings.index')->name('shipping-settings.index');
     Route::livewire('shipping-settings/create', 'shipping-settings.create-update')->name('shipping-settings.create');
     Route::livewire('shipping-settings/{shippingMethod}/edit', 'shipping-settings.create-update')->name('shipping-settings.edit');
+    Route::livewire('shipping-cost', 'shipping-cost.index')->name('shipping-cost.index');
+    Route::livewire('shipping-cost/create', 'shipping-cost.create-update')->name('shipping-cost.create');
+    Route::livewire('shipping-cost/{shippingRule}/edit', 'shipping-cost.create-update')->name('shipping-cost.edit');
     Route::redirect('admin-settings', 'admin-settings/team')->name('settings.index');
     Route::livewire('admin-settings/{tab}', 'settings.index')
         ->whereIn('tab', ['team', 'popular-products', 'dhl'])

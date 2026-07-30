@@ -28,7 +28,6 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'lang' => ['nullable', 'string', Rule::in(['en', 'nl'])],
-            'status' => 'required',
             'notes' => 'nullable|string',
             'user_id' => 'nullable|integer',
             'billing_address_id' => 'nullable|integer|exists:addresses,id',
@@ -43,7 +42,7 @@ class StoreOrderRequest extends FormRequest
             'billing_address2' => 'nullable|string',
             'billing_city' => 'required_without:billing_address_id|nullable|string',
             'billing_postalcode' => 'nullable|string|max:12',
-            'billing_country_id' => 'nullable|string',
+            'billing_country_id' => ['nullable', Rule::in(['NL', 'BE'])],
             'billing_province_id' => 'nullable|integer',
             'shipping_address_id' => 'nullable|integer|exists:addresses,id',
             'shipping_name' => 'nullable|string',
@@ -53,19 +52,16 @@ class StoreOrderRequest extends FormRequest
             'shipping_address2' => 'nullable|string',
             'shipping_city' => 'nullable|string',
             'shipping_postalcode' => 'nullable|string|max:12',
-            'shipping_country_id' => 'nullable|string',
+            'shipping_country_id' => ['nullable', Rule::in(['NL', 'BE'])],
             'shipping_province_id' => 'nullable|integer',
             'order_items' => 'required|array|min:1',
             'order_items.*.product_id' => 'required|integer',
             'order_items.*.is_group_product' => 'nullable|boolean',
-            'order_items.*.name' => 'required|string',
-            'order_items.*.price' => 'required|numeric|min:0',
+            'order_items.*.name' => 'sometimes|string',
+            'order_items.*.price' => 'sometimes|numeric|min:0',
             'order_items.*.quantity' => 'required|integer|min:1',
-            'shipping_amount' => 'nullable|numeric|min:0',
-            'tax_amount' => 'nullable|numeric|min:0',
-            'payment_fee' => 'nullable|numeric|min:0',
-            'payment_method' => 'nullable|string|in:ideal,creditcard,bancontact,banktransfer',
-            'total' => 'nullable|numeric|min:0',
+            'payment_method' => 'required|string|in:ideal,creditcard,bancontact,banktransfer',
+            'coupon_code' => 'nullable|string|max:255',
             'order_items.*.configuration' => 'nullable|array',
             'order_items.*.configuration.warranty_option_id' => 'nullable|integer|exists:product_warranty_options,id',
             'order_items.*.configuration.extended_warranty' => 'nullable|array',
@@ -95,6 +91,14 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                foreach (['billing_address_id', 'shipping_address_id'] as $addressField) {
+                    $addressId = $this->input($addressField);
+
+                    if ($addressId && ! $this->user()?->addresses()->whereKey($addressId)->whereIn('country_id', ['NL', 'BE'])->exists()) {
+                        $validator->errors()->add($addressField, __('Checkout is only available for the Netherlands and Belgium.'));
+                    }
+                }
+
                 foreach ($this->input('order_items', []) as $index => $item) {
                     $isGroupProduct = (bool) ($item['is_group_product'] ?? false);
                     $productId = $item['product_id'] ?? null;

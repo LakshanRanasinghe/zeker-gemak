@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\OrderPlacedCustomer;
+use App\Models\CountryShippingRule;
 use App\Models\GroupProduct;
 use App\Models\Order;
 use App\Models\Product;
@@ -9,10 +10,15 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Konekt\Address\Models\Country;
 use Laravel\Sanctum\Sanctum;
+use Mollie\Api\Fake\MockResponse;
+use Mollie\Api\Http\Requests\CreatePaymentRequest;
+use Mollie\Api\Http\Requests\GetPaymentRequest;
+use Mollie\Laravel\Facades\Mollie;
 use Vanilo\Adjustments\Models\AdjustmentTypeProxy;
 
 use function Pest\Laravel\assertDatabaseCount;
 use function Pest\Laravel\assertDatabaseHas;
+use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
 
 uses(RefreshDatabase::class);
@@ -21,6 +27,13 @@ beforeEach(function () {
     Config::set('scout.driver', 'null');
     Product::disableSearchSyncing();
     GroupProduct::disableSearchSyncing();
+    CountryShippingRule::query()->create([
+        'country_code' => 'NL',
+        'country_name' => 'Netherlands',
+        'shipping_cost' => '6.95',
+        'free_shipping_threshold' => '60.00',
+        'is_active' => true,
+    ]);
 });
 
 afterEach(function () {
@@ -70,6 +83,7 @@ test('group product reindexes when child product price changes', function () {
 });
 
 test('an order expands group products with child prices and adds a discount line', function () {
+    fake_group_checkout_payment();
     $user = User::factory()->create();
     Sanctum::actingAs($user);
 
@@ -109,6 +123,11 @@ test('an order expands group products with child prices and adds a discount line
 
     $response = postJson('/api/orders', $payload);
     $response->assertStatus(200);
+    expect(Order::query()->count())->toBe(0);
+
+    $response = getJson('/api/guest/orders/'.$response->json('checkout_reference'))
+        ->assertOk()
+        ->assertJsonPath('status', 'paid');
 
     $order = Order::first();
 
@@ -124,11 +143,11 @@ test('an order expands group products with child prices and adds a discount line
     // Verify discount adjustment
     $adjustments = $order->adjustments()->byType(AdjustmentTypeProxy::PROMOTION());
     expect($adjustments->count())->toBe(1);
-    expect($adjustments->first()->title)->toBe('Bundle discount (10%)');
+    expect($adjustments->first()->title)->toBe('Bundle discount');
     expect((float) $adjustments->first()->amount)->toBe(-10.00);
 
-    // Total should be 100 (items) - 10 (discount) = 90
-    expect((float) $order->total())->toBe(90.00);
+    // Total includes the canonical 21% VAT snapshot.
+    expect((float) $order->total())->toBe(108.90);
 
     // Verify OrderResource naming
     $responseData = $response->json('data');
@@ -164,6 +183,7 @@ test('it returns validation error for invalid group product', function () {
 });
 
 test('order placed email shows group product name for expanded child items', function () {
+    fake_group_checkout_payment();
     $user = User::factory()->create();
     Sanctum::actingAs($user);
 
@@ -198,6 +218,9 @@ test('order placed email shows group product name for expanded child items', fun
     ]);
 
     $response->assertOk();
+    getJson('/api/guest/orders/'.$response->json('checkout_reference'))
+        ->assertOk()
+        ->assertJsonPath('status', 'paid');
 
     $order = Order::with(['items.sourceGroupProduct', 'billpayer.address', 'shippingAddress'])->firstOrFail();
     $order->items->first()->update(['source_group_product_name' => null]);
@@ -207,6 +230,7 @@ test('order placed email shows group product name for expanded child items', fun
 });
 
 test('guest checkout attaches the order to an existing user with the same billing email', function () {
+    fake_group_checkout_payment();
     $user = User::factory()->create([
         'email' => 'uhasith5@gmail.com',
     ]);
@@ -255,8 +279,37 @@ test('guest checkout attaches the order to an existing user with the same billin
 
     $response->assertOk();
     assertDatabaseCount('users', 1);
+    getJson('/api/guest/orders/'.$response->json('checkout_reference'))
+        ->assertOk()
+        ->assertJsonPath('status', 'paid');
 
     $order = Order::firstOrFail();
 
     expect($order->user_id)->toBe($user->id);
 });
+
+function fake_group_checkout_payment(): void
+{
+    $payment = MockResponse::ok([
+        'resource' => 'payment',
+        'id' => 'tr_group_checkout',
+        'mode' => 'test',
+        'amount' => ['value' => '108.90', 'currency' => 'EUR'],
+        'description' => 'Group checkout test',
+        'status' => 'open',
+        'metadata' => [],
+        '_links' => [
+            'checkout' => ['href' => 'https://www.mollie.com/checkout/group', 'type' => 'text/html'],
+        ],
+    ]);
+    $paidPayment = MockResponse::ok([
+        ...$payment->json(),
+        'status' => 'paid',
+        'paidAt' => now()->toIso8601String(),
+    ]);
+
+    Mollie::fake([
+        CreatePaymentRequest::class => $payment,
+        GetPaymentRequest::class => $paidPayment,
+    ]);
+}

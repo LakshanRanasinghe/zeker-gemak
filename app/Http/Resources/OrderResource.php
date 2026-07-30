@@ -15,25 +15,34 @@ class OrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $amounts = data_get($this->original_checkout_payload, 'calculated_amounts', []);
+        $lines = collect($amounts['lines'] ?? []);
+
         return [
             'id' => $this->id,
             'number' => $this->number,
             'status' => $this->status->value(),
             'notes' => $this->notes,
             'user_id' => $this->user_id,
-            'subtotal' => (float) $this->itemsTotal(),
-            'shipping_amount' => (float) $this->adjustments()->byType(AdjustmentTypeProxy::SHIPPING())->total(true),
-            'tax_amount' => (float) $this->adjustments()->byType(AdjustmentTypeProxy::TAX())->total(true),
-            'total' => (float) $this->total(),
+            'subtotal' => (float) ($amounts['subtotal_total'] ?? $this->itemsTotal()),
+            'discount_amount' => (float) ($amounts['discount_total'] ?? 0),
+            'shipping_amount' => (float) ($amounts['shipping_total'] ?? $this->adjustments()->byType(AdjustmentTypeProxy::SHIPPING())->total(true)),
+            'payment_fee' => (float) ($amounts['fees_total'] ?? 0),
+            'tax_amount' => (float) ($amounts['total_tax'] ?? $this->adjustments()->byType(AdjustmentTypeProxy::TAX())->total(true)),
+            'total' => (float) ($amounts['grand_total'] ?? $this->total()),
+            'calculated_amounts' => $amounts,
             'original_checkout_payload' => $this->original_checkout_payload,
-            'items' => $this->items->map(function ($item) {
+            'items' => $this->items->values()->map(function ($item, int $index) use ($lines) {
+                $line = $lines->get($index, []);
+
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'name' => $item->display_name,
-                    'price' => (float) $item->price,
+                    'price' => (float) ($line['unit_total'] ?? $item->price),
+                    'price_ex_tax' => (float) ($line['unit_ex_tax'] ?? $item->price),
                     'quantity' => $item->quantity,
-                    'total' => (float) ($item->price * $item->quantity),
+                    'total' => (float) ($line['line_total'] ?? ($item->price * $item->quantity)),
                     'source_group_product_id' => $item->source_group_product_id,
                     'source_group_product_name' => $item->source_group_product_name,
                     'source_group_product_display_name' => $item->source_group_product_display_name,

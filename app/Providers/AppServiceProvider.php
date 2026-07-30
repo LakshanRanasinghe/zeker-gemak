@@ -61,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureSearchIndexInvalidation();
 
         Event::listen(OrderWasCreated::class, function (OrderWasCreated $event) {
-            SendOrderEmailsJob::dispatch($event->getOrder(), 'placed', null, ApiLocale::current());
+            SendOrderEmailsJob::dispatch($event->getOrder(), 'placed', null, ApiLocale::current())->afterCommit();
         });
 
         Gate::before(function ($user, $ability) {

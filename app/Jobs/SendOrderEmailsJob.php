@@ -39,12 +39,12 @@ class SendOrderEmailsJob implements ShouldQueue
         $this->order->load(['items.sourceGroupProduct', 'billpayer.address', 'shippingAddress']);
 
         $locale = $this->orderLocale();
-        $adminEmail = config('mail.admin_email', config('mail.from.address'));
+        $adminEmails = config('app.admin_emails');
         $customerEmail = $this->order->billpayer?->email;
 
         match ($this->type) {
-            'placed' => $this->sendPlacedEmails($adminEmail, $customerEmail, $locale),
-            'cancelled' => $this->sendCancelledEmails($adminEmail, $customerEmail, $locale),
+            'placed' => $this->sendPlacedEmails($adminEmails, $customerEmail, $locale),
+            'cancelled' => $this->sendCancelledEmails($adminEmails, $customerEmail, $locale),
             'shipped' => $this->sendShippedEmails($customerEmail, $locale),
             'status_updated' => $this->sendStatusUpdatedEmails($customerEmail, $locale),
         };
@@ -57,18 +57,24 @@ class SendOrderEmailsJob implements ShouldQueue
             ?? ApiLocale::current();
     }
 
-    private function sendPlacedEmails(string $adminEmail, ?string $customerEmail, string $locale): void
+    /**
+     * @param  array<int, string>  $adminEmails
+     */
+    private function sendPlacedEmails(array $adminEmails, ?string $customerEmail, string $locale): void
     {
-        Mail::to($adminEmail)->send(new OrderPlacedAdmin($this->order));
+        Mail::to($adminEmails)->send(new OrderPlacedAdmin($this->order));
 
         if ($customerEmail) {
             Mail::to($customerEmail)->locale($locale)->send(new OrderPlacedCustomer($this->order));
         }
     }
 
-    private function sendCancelledEmails(string $adminEmail, ?string $customerEmail, string $locale): void
+    /**
+     * @param  array<int, string>  $adminEmails
+     */
+    private function sendCancelledEmails(array $adminEmails, ?string $customerEmail, string $locale): void
     {
-        Mail::to($adminEmail)->send(new OrderCancelledAdmin($this->order));
+        Mail::to($adminEmails)->send(new OrderCancelledAdmin($this->order));
 
         if ($customerEmail) {
             Mail::to($customerEmail)->locale($locale)->send(new OrderCancelledCustomer($this->order));

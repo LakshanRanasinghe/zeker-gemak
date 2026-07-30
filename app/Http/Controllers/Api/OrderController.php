@@ -3,28 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\QuoteCheckoutRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
 use App\Http\Resources\OrderResource;
-use App\Models\GroupProduct;
+use App\Models\CheckoutSession;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductWarrantyOption;
 use App\Models\User;
+use App\Services\CheckoutService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Mollie\Laravel\Facades\Mollie;
-use Vanilo\Adjustments\Models\Adjustment;
-use Vanilo\Adjustments\Models\AdjustmentType;
 use Vanilo\Foundation\Models\Customer;
 use Vanilo\Order\Contracts\OrderFactory;
-use Vanilo\Order\Models\Order;
 use Vanilo\Order\Models\OrderProxy;
 
 class OrderController extends Controller
 {
+    public function __construct(private readonly CheckoutService $checkout) {}
+
     /**
      * Display a listing of the orders.
      */
@@ -51,281 +54,99 @@ class OrderController extends Controller
     /**
      * Store a newly created order in storage.
      */
-    public function store(StoreOrderRequest $request)
+    public function quote(QuoteCheckoutRequest $request): JsonResponse
     {
-        try {
-            $user = $request->user();
-            Log::info('Order creation started', [
-                'user_id' => $user?->id,
-                'payload' => $request->all(),
+        return response()->json([
+            'data' => $this->checkout->calculate($request->validated()),
+        ]);
+    }
+
+    public function store(StoreOrderRequest $request): JsonResponse
+    {
+        $payload = $request->validated();
+        $payload['shipping_country_id'] = $payload['shipping_country_id'] ?? $payload['billing_country_id'] ?? 'NL';
+        $payload['_user_id'] = $request->user()?->id;
+        $calculatedAmounts = $this->checkout->calculate($payload);
+
+        if ((float) $calculatedAmounts['grand_total'] < 0.01) {
+            throw ValidationException::withMessages([
+                'order_items' => [__('The order total must be at least €0.01.')],
             ]);
+        }
 
-            $validated = $request->validated();
+        $checkoutSession = CheckoutSession::query()->create([
+            'reference' => (string) Str::uuid(),
+            'payload' => $payload,
+            'calculated_amounts' => $calculatedAmounts,
+        ]);
 
-            // Safely identify the user ID for guest checkouts
-            $userId = $user ? $user->id : ($validated['user_id'] ?? null);
-
-            if ($userId === null && ! empty($validated['billing_email'])) {
-                $user = User::firstOrCreate(
-                    ['email' => $validated['billing_email']],
-                    [
-                        'phone' => $validated['billing_phone'] ?? null,
-                        'password' => Hash::make(Str::random(12)),
-                        'name' => trim(($validated['billing_firstname'] ?? '').' '.($validated['billing_lastname'] ?? '')),
-                    ]
-                );
-                $userId = $user->id;
-            }
-
-            $billpayer = $this->buildBillpayerData($validated, $user);
-
-            // If no shipping provided at all, copy billing address to shipping
-            $hasShipping = ! empty($validated['shipping_address_id']) || ! empty($validated['shipping_address']);
-            $shipping = $hasShipping ? $this->buildShippingAddressData($validated, $user) : $this->copyBillingToShipping($billpayer);
-
-            $data = [
-                'status' => $validated['status'],
-                'language' => $validated['lang'] ?? app()->getLocale(),
-                'notes' => $validated['notes'] ?? null,
-                'user_id' => $userId,
-                'billpayer' => $billpayer,
-                'shippingAddress' => $shipping,
-                'original_checkout_payload' => $validated,
-            ];
-
-            $items = [];
-            $groupDiscounts = [];
-
-            foreach ($validated['order_items'] as $item) {
-                $isGroupProduct = (bool) ($item['is_group_product'] ?? false);
-
-                if ($isGroupProduct) {
-                    $groupProduct = GroupProduct::with('products')->find($item['product_id']);
-                    if ($groupProduct) {
-                        $childProducts = $groupProduct->products;
-                        $groupDiscountPercentage = (float) ($groupProduct->discount ?? 0);
-                        $groupQuantity = (int) ($item['quantity'] ?? 1);
-
-                        foreach ($childProducts as $childProduct) {
-                            $childQtyInGroup = max(1, $childProduct->pivot->quantity);
-
-                            $items[] = [
-                                'product_type' => 'product',
-                                'product_id' => $childProduct->id,
-                                'price' => (float) ($childProduct->price ?? 0),
-                                'name' => $childProduct->name,
-                                'quantity' => $groupQuantity * $childQtyInGroup,
-                                'configuration' => $item['configuration'] ?? null,
-                                'source_group_product_id' => $groupProduct->id,
-                                'source_group_product_name' => $groupProduct->name ?: $groupProduct->title,
-                                'source_group_product_sku' => $groupProduct->sku,
-                            ];
-                        }
-
-                        if ($groupDiscountPercentage > 0) {
-                            $groupBasePrice = (float) $groupProduct->base_price;
-                            $discountAmountPerGroup = $groupBasePrice * ($groupDiscountPercentage / 100);
-                            $totalDiscountForThisGroup = $discountAmountPerGroup * $groupQuantity;
-
-                            $groupDiscounts[] = [
-                                'title' => __(':name discount (:percentage%)', [
-                                    'name' => $groupProduct->name,
-                                    'percentage' => $groupDiscountPercentage,
-                                ]),
-                                'amount' => -$totalDiscountForThisGroup,
-                            ];
-                        }
-                    }
-                } else {
-                    $product = Product::query()->find($item['product_id']);
-
-                    $items[] = [
-                        'product_type' => 'product',
-                        'product_id' => $item['product_id'],
-                        'price' => $item['price'],
-                        'name' => $item['name'],
-                        'quantity' => $item['quantity'],
-                        'configuration' => $item['configuration'] ?? null,
-                    ];
-
-                    if ($extendedWarrantyItem = $this->buildExtendedWarrantyItem($item, $product)) {
-                        $items[] = $extendedWarrantyItem;
-                    }
-                }
-            }
-
-            DB::beginTransaction();
-
-            $order = app(OrderFactory::class)->createFromDataArray($data, $items);
-
-            if (! $order) {
-                throw new \Exception('Order factory failed to create the order object.');
-            }
-
-            // Apply group discounts as adjustments
-            foreach ($groupDiscounts as $discount) {
-                Adjustment::create([
-                    'type' => AdjustmentType::PROMOTION,
-                    'adjustable_type' => $order->getMorphClass(),
-                    'adjustable_id' => $order->id,
-                    'title' => $discount['title'],
-                    'amount' => (float) $discount['amount'],
-                    'adjuster' => 'manual',
-                ]);
-            }
-
-            if (! empty($validated['shipping_amount'])) {
-                Adjustment::create([
-                    'type' => AdjustmentType::SHIPPING,
-                    'adjustable_type' => $order->getMorphClass(),
-                    'adjustable_id' => $order->id,
-                    'title' => __('Shipping'),
-                    'amount' => (float) $validated['shipping_amount'],
-                    'adjuster' => 'manual',
-                ]);
-            }
-
-            if (! empty($validated['tax_amount'])) {
-                Adjustment::create([
-                    'type' => AdjustmentType::TAX,
-                    'adjustable_type' => $order->getMorphClass(),
-                    'adjustable_id' => $order->id,
-                    'title' => __('Tax'),
-                    'amount' => (float) $validated['tax_amount'],
-                    'adjuster' => 'manual',
-                ]);
-            }
-
-            if (! empty($validated['payment_fee'])) {
-                Adjustment::create([
-                    'type' => AdjustmentType::MISC,
-                    'adjustable_type' => $order->getMorphClass(),
-                    'adjustable_id' => $order->id,
-                    'title' => __('Payment Fee'),
-                    'amount' => (float) $validated['payment_fee'],
-                    'adjuster' => 'manual',
-                ]);
-            }
-
-            // Auto-save phone and addresses to profile if the user is logged in
-            if ($user) {
-                // Update user phone if it's not set
-                if (empty($user->phone) && ! empty($billpayer['phone'])) {
-                    $user->update(['phone' => $billpayer['phone']]);
-                }
-
-                // Save addresses to address book if they don't exist yet
-                $this->autoSaveAddresses($user, $billpayer, $shipping);
-            }
-
-            // Use the frontend-calculated total (includes shipping + tax + payment fee adjustments)
-            // Fallback to order->total() if not provided
-            $mollieTotal = ! empty($validated['total'])
-                ? number_format((float) $validated['total'], 2, '.', '')
-                : number_format($order->total(), 2, '.', '');
-
-            // Mollie requires at least €0.01
-            if ((float) $mollieTotal < 0.01) {
-                throw new \Exception('Order total is too low for payment processing (minimum €0.01).');
-            }
-
+        try {
+            $frontendUrl = rtrim((string) (config('app.frontend_url') ?: 'http://localhost:3000'), '/');
             $paymentData = [
                 'amount' => [
                     'currency' => 'EUR',
-                    'value' => $mollieTotal,
+                    'value' => $calculatedAmounts['grand_total'],
                 ],
-                'description' => 'Order '.$order->number,
-                'redirectUrl' => env('FRONTEND_URL', 'http://localhost:3000').'/thank-you?order_number='.$order->number,
-                'metadata' => [
-                    'order_id' => $order->id,
-                ],
+                'description' => __('Zeker Gemak checkout :reference', ['reference' => $checkoutSession->reference]),
+                'redirectUrl' => $frontendUrl.'/thank-you?checkout_reference='.$checkoutSession->reference,
+                'metadata' => ['checkout_reference' => $checkoutSession->reference],
+                'method' => $payload['payment_method'],
             ];
+            $appUrl = rtrim((string) config('app.url'), '/');
 
-            if (! empty($validated['payment_method'])) {
-                $paymentData['method'] = $validated['payment_method'];
-            }
-
-            $appUrl = config('app.url');
-            if ($appUrl && ! str_contains($appUrl, 'localhost') && ! str_contains($appUrl, '.test') && ! str_contains($appUrl, '127.0.0.1')) {
+            if ($appUrl !== '' && ! str_contains($appUrl, 'localhost') && ! str_contains($appUrl, '.test') && ! str_contains($appUrl, '127.0.0.1')) {
                 $paymentData['webhookUrl'] = $appUrl.'/api/webhooks/mollie';
             }
 
-            if ($validated['payment_method'] === 'banktransfer') {
-                $existingNotes = $order->notes ? $order->notes."\n" : '';
-                $order->update(['notes' => $existingNotes.'Payment Method: Invoice']);
-
-                DB::commit();
-
-                return (new OrderResource(
-                    OrderProxy::with(['items', 'billpayer.address', 'shippingAddress'])->findOrFail($order->id)
-                ))->additional(['payment_url' => env('FRONTEND_URL', 'http://localhost:3000').'/thank-you?order_number='.$order->number]);
-            }
-
             $payment = Mollie::api()->payments->create($paymentData);
-            if (! $payment) {
-                throw new \Exception('Mollie payment creation failed.');
-            }
-
-            $paymentUrl = $payment->getCheckoutUrl();
-
-            // Save the Mollie payment ID in the order notes (appending if notes already exist)
-            $existingNotes = $order->notes ? $order->notes."\n" : '';
-            $order->update(['notes' => $existingNotes.'Mollie ID: '.($payment->id ?? 'unknown')]);
-
-            DB::commit();
-
-            return (new OrderResource(
-                OrderProxy::with(['items', 'billpayer.address', 'shippingAddress'])->findOrFail($order->id)
-            ))->additional(['payment_url' => $paymentUrl]);
-        } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-            Log::error('Order creation/payment failed: '.$e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString(),
+            $checkoutSession->update([
+                'mollie_payment_id' => $payment->id,
+                'payment_status' => $payment->status ?? 'open',
             ]);
 
             return response()->json([
-                'message' => 'Failed to create order or initialize payment.',
-                'error' => $e->getMessage(),
-            ], 422);
+                'checkout_reference' => $checkoutSession->reference,
+                'status' => $checkoutSession->payment_status,
+                'payment_url' => $payment->getCheckoutUrl(),
+                'calculated_amounts' => $calculatedAmounts,
+            ]);
+        } catch (\Throwable $exception) {
+            $checkoutSession->delete();
+            report($exception);
+
+            return response()->json(['message' => __('Payment could not be initialized.')], 422);
         }
     }
 
     /**
      * Display the specified order by number.
      */
-    public function showByNumber($number)
+    public function showByNumber(string $number): JsonResponse|OrderResource
     {
-        $order = OrderProxy::where('number', $number)->with(['items', 'billpayer.address', 'shippingAddress'])->firstOrFail();
+        $checkoutSession = CheckoutSession::query()->where('reference', $number)->first();
 
-        // If the order is still pending, check the actual status with Mollie
-        // This is crucial for local development where webhooks don't work!
-        if ($order->status->value() === 'pending' && ! empty($order->notes)) {
-            try {
-                // Extract Mollie ID from notes if it exists
-                $mollieId = null;
-                if (preg_match('/Mollie ID: (tr_[a-zA-Z0-9]+)/', $order->notes, $matches)) {
-                    $mollieId = $matches[1];
-                }
-
-                if ($mollieId) {
-                    $payment = Mollie::api()->payments->get($mollieId);
-                    if ($payment->isPaid()) {
-                        $order->update(['status' => 'processing']);
-                        $order->refresh();
-                    } elseif ($payment->isCanceled() || $payment->isFailed() || $payment->isExpired()) {
-                        $order->update(['status' => 'cancelled']);
-                        $order->refresh();
-                    }
-                }
-            } catch (\Exception $e) {
-                Log::error('Mollie status check failed for order '.$number.': '.$e->getMessage());
-            }
+        if (! $checkoutSession) {
+            return new OrderResource(
+                OrderProxy::query()
+                    ->where('number', $number)
+                    ->with(['items', 'billpayer.address', 'shippingAddress'])
+                    ->firstOrFail()
+            );
         }
 
-        return new OrderResource($order);
+        if ($checkoutSession->mollie_payment_id) {
+            $payment = Mollie::api()->payments->get($checkoutSession->mollie_payment_id);
+            $checkoutSession = $this->processPayment($checkoutSession, $payment);
+        }
+
+        return response()->json([
+            'status' => $checkoutSession->payment_status,
+            'checkout_reference' => $checkoutSession->reference,
+            'calculated_amounts' => $checkoutSession->calculated_amounts,
+            'data' => $checkoutSession->order
+                ? (new OrderResource($checkoutSession->order))->resolve()
+                : null,
+        ]);
     }
 
     /**
@@ -715,7 +536,7 @@ class OrderController extends Controller
     /**
      * Handle Mollie payment webhook.
      */
-    public function webhook(Request $request)
+    public function webhook(Request $request): JsonResponse
     {
         if (! $request->has('id')) {
             return response()->json(['message' => 'No payment ID provided'], 400);
@@ -723,26 +544,55 @@ class OrderController extends Controller
 
         try {
             $payment = Mollie::api()->payments->get($request->id);
-            $orderId = $payment->metadata->order_id ?? null;
+            $reference = data_get($payment, 'metadata.checkout_reference');
+            $checkoutSession = CheckoutSession::query()
+                ->when($reference, fn ($query) => $query->where('reference', $reference))
+                ->when(! $reference, fn ($query) => $query->where('mollie_payment_id', $request->id))
+                ->firstOrFail();
 
-            if ($orderId) {
-                $order = OrderProxy::find($orderId);
-                if ($order) {
-                    if ($payment->isPaid() && ! $payment->hasRefunds() && ! $payment->hasChargebacks()) {
-                        $order->update(['status' => 'processing']);
-                    } elseif ($payment->isCanceled()) {
-                        $order->update(['status' => 'cancelled']);
-                    } elseif ($payment->isFailed()) {
-                        $order->update(['status' => 'cancelled']);
-                    } elseif ($payment->isExpired()) {
-                        $order->update(['status' => 'cancelled']);
-                    }
-                }
+            if ($checkoutSession->mollie_payment_id !== $payment->id) {
+                return response()->json(['message' => 'Payment does not match checkout session.'], 422);
             }
+
+            $this->processPayment($checkoutSession, $payment);
         } catch (\Exception $e) {
             Log::error('Mollie webhook failed: '.$e->getMessage());
+
+            return response()->json(['message' => 'Payment status could not be processed.'], 422);
         }
 
         return response()->json(null, 204);
+    }
+
+    private function processPayment(CheckoutSession $checkoutSession, object $payment): CheckoutSession
+    {
+        $paymentStatus = match (true) {
+            $payment->isPaid() && ! $payment->hasRefunds() && ! $payment->hasChargebacks() => 'paid',
+            $payment->isCanceled() => 'canceled',
+            $payment->isFailed() => 'failed',
+            $payment->isExpired() => 'expired',
+            default => in_array($payment->status ?? null, ['open', 'pending', 'authorized'], true)
+                ? $payment->status
+                : 'pending',
+        };
+
+        return DB::transaction(function () use ($checkoutSession, $paymentStatus): CheckoutSession {
+            $lockedSession = CheckoutSession::query()->lockForUpdate()->findOrFail($checkoutSession->id);
+
+            if ($paymentStatus !== 'paid' || $lockedSession->order_id) {
+                $lockedSession->update(['payment_status' => $paymentStatus]);
+
+                return $lockedSession->fresh('order');
+            }
+
+            $lockedSession->update(['payment_status' => 'paid']);
+            $order = $this->checkout->createOrder($lockedSession);
+            $lockedSession->update([
+                'order_id' => $order->id,
+                'processed_at' => now(),
+            ]);
+
+            return $lockedSession->fresh('order');
+        });
     }
 }

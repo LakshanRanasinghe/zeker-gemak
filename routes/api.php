@@ -18,11 +18,13 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\ShippingController;
+use App\Http\Controllers\Api\ShippingRuleController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Middleware\RoleMiddleware;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -62,9 +64,17 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::post('login', [AuthController::class, 'login']);
+Route::post('checkout/quote', [OrderController::class, 'quote'])->name('checkout.quote');
 Route::post('guest/orders', [OrderController::class, 'store'])->name('orders.guest.store');
 Route::get('guest/orders/{number}', [OrderController::class, 'showByNumber'])->name('orders.guest.show');
 Route::post('webhooks/mollie', [OrderController::class, 'webhook'])->name('webhooks.mollie');
+Route::get('shipping-rules/active', [ShippingRuleController::class, 'active'])->name('shipping-rules.active');
+
+Route::middleware(['auth:sanctum', RoleMiddleware::using('admin')])->prefix('admin')->name('admin.')->group(function () {
+    Route::apiResource('shipping-rules', ShippingRuleController::class)
+        ->parameters(['shipping-rules' => 'shippingRule'])
+        ->names('shipping-rules');
+});
 
 Route::prefix('products')->name('products.')->controller(ProductController::class)->group(function () {
     Route::get('/', 'index')->name('index');
