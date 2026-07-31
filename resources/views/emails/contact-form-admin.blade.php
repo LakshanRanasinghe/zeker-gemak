@@ -45,6 +45,12 @@
         .sender-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #a8a29e; margin-bottom: 8px; }
         .sender-email { font-size: 24px; font-weight: 800; color: #ea580c; margin: 0; word-break: break-all; text-decoration: none; }
 
+        .details-grid { border-top: 1px solid #f5f0eb; padding-top: 24px; margin-bottom: 32px; }
+        .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f5f5f4; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { font-size: 14px; color: #78716c; font-weight: 500; }
+        .detail-value { font-size: 14px; color: #1c1917; font-weight: 600; text-align: right; }
+
         .message-section { border-top: 1px solid #f5f0eb; padding-top: 32px; }
         .message-label { font-size: 14px; color: #78716c; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
         .message-box {
@@ -97,19 +103,93 @@
         <div class="content">
             <div class="sender-card">
                 <div class="sender-label">From Sender</div>
-                <a href="mailto:{{ $data['email'] }}" class="sender-email">{{ $data['email'] }}</a>
+                <a href="mailto:{{ $data['email'] ?? '#' }}" class="sender-email">{{ $data['email'] ?? 'No email provided' }}</a>
             </div>
 
+            <div class="details-grid">
+                @if(!empty($data['naam']) || !empty($data['name']))
+                <div class="detail-row">
+                    <span class="detail-label">Naam (Name)</span>
+                    <span class="detail-value">{{ $data['naam'] ?? $data['name'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['telefoon']) || !empty($data['phone']))
+                <div class="detail-row">
+                    <span class="detail-label">Telefoon (Phone)</span>
+                    <span class="detail-value">{{ $data['telefoon'] ?? $data['phone'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['bedrijf']) || !empty($data['company']))
+                <div class="detail-row">
+                    <span class="detail-label">Bedrijf (Company)</span>
+                    <span class="detail-value">{{ $data['bedrijf'] ?? $data['company'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['straatnaam']) || !empty($data['street']))
+                <div class="detail-row">
+                    <span class="detail-label">Straatnaam (Street)</span>
+                    <span class="detail-value">{{ $data['straatnaam'] ?? $data['street'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['woonplaats']) || !empty($data['city']))
+                <div class="detail-row">
+                    <span class="detail-label">Woonplaats (City)</span>
+                    <span class="detail-value">{{ $data['woonplaats'] ?? $data['city'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['onderwerp']) || !empty($data['subject']))
+                <div class="detail-row">
+                    <span class="detail-label">Onderwerp (Subject)</span>
+                    <span class="detail-value">{{ $data['onderwerp'] ?? $data['subject'] }}</span>
+                </div>
+                @endif
+
+                @if(!empty($data['soort_vraag']) || !empty($data['soortVraag']))
+                <div class="detail-row">
+                    <span class="detail-label">Soort vraag (Type of question)</span>
+                    <span class="detail-value">
+                        @if(is_array($data['soort_vraag'] ?? $data['soortVraag'] ?? null))
+                            {{ implode(', ', $data['soort_vraag'] ?? $data['soortVraag']) }}
+                        @else
+                            {{ $data['soort_vraag'] ?? $data['soortVraag'] }}
+                        @endif
+                    </span>
+                </div>
+                @endif
+
+                @if(!empty($data['productgroep']))
+                <div class="detail-row">
+                    <span class="detail-label">Productgroep</span>
+                    <span class="detail-value">
+                        @if(is_array($data['productgroep']))
+                            {{ implode(', ', $data['productgroep']) }}
+                        @else
+                            {{ $data['productgroep'] }}
+                        @endif
+                    </span>
+                </div>
+                @endif
+            </div>
+
+            @if(!empty($data['bericht']) || !empty($data['message']))
             <div class="message-section">
                 <div class="message-label">Message Content</div>
                 <div class="message-box">
-                    "{{ $data['message'] }}"
+                    "{{ $data['bericht'] ?? $data['message'] }}"
                 </div>
             </div>
+            @endif
 
+            @if(!empty($data['email']))
             <div class="action-container">
                 <a href="mailto:{{ $data['email'] }}" class="btn">Reply via Email</a>
             </div>
+            @endif
         </div>
 
         <div class="footer">

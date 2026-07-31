@@ -40,7 +40,7 @@ class RetouraanvraagRequest extends FormRequest
             'artikelnummer1' => ['nullable', 'string', 'max:255'],
             'aantal1' => ['nullable', 'string', 'max:255'],
             'factuurnummer1' => ['nullable', 'string', 'max:255'],
-            'factuurdatum1' => ['nullable', 'date'],
+            'factuurdatum1' => ['nullable', 'string', 'max:255'],
             'probleem1' => ['nullable', 'string'],
             'reden1' => ['nullable', 'array'],
             'reden1.*' => ['string', 'max:255'],
@@ -50,7 +50,7 @@ class RetouraanvraagRequest extends FormRequest
             'artikelnummer2' => ['nullable', 'string', 'max:255'],
             'aantal2' => ['nullable', 'string', 'max:255'],
             'factuurnummer2' => ['nullable', 'string', 'max:255'],
-            'factuurdatum2' => ['nullable', 'date'],
+            'factuurdatum2' => ['nullable', 'string', 'max:255'],
             'probleem2' => ['nullable', 'string'],
             'reden2' => ['nullable', 'array'],
             'reden2.*' => ['string', 'max:255'],
@@ -64,6 +64,8 @@ class RetouraanvraagRequest extends FormRequest
             'generalReasons' => $this->normalizeArrayInput('generalReasons'),
             'reden1' => $this->normalizeArrayInput('reden1'),
             'reden2' => $this->normalizeArrayInput('reden2'),
+            'factuurdatum1' => $this->input('factuurdatum1') ?: null,
+            'factuurdatum2' => $this->input('factuurdatum2') ?: null,
         ]);
     }
 
@@ -84,6 +86,13 @@ class RetouraanvraagRequest extends FormRequest
 
         if ($value === null || $value === '') {
             return null;
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
         }
 
         if (is_array($value)) {
