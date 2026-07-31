@@ -58,7 +58,7 @@ class FinalizeWooCommerceProductSync implements ShouldBeUnique, ShouldQueue
         if ($shouldReindex) {
             Artisan::queue('app:reindex-elasticsearch', [
                 '--model' => ['Product'],
-            ])->onQueue('scout');
+            ]);
         }
 
         Log::info('WooCommerce product sync finalized and reindex queued.', [

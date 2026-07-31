@@ -27,7 +27,7 @@ class ReindexElasticsearch extends Command
 
     private array $models = [
         'Product' => Product::class,
-        'GroupProduct' => GroupProduct::class,
+        // 'GroupProduct' => GroupProduct::class,
     ];
 
     /**

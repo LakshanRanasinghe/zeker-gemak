@@ -59,14 +59,14 @@
                             :current="request()->routeIs('products.index')" wire:navigate>
                             {{ __('Products') }}
                         </flux:sidebar.item>
-                        <flux:sidebar.item icon="rectangle-group" :href="route('group-products.index')"
+                        {{-- <flux:sidebar.item icon="rectangle-group" :href="route('group-products.index')"
                             :current="request()->routeIs('group-products.*')" wire:navigate>
                             {{ __('Group Products') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="shield-check" :href="route('warranty-groups.index')"
                             :current="request()->routeIs('warranty-groups.*')" wire:navigate>
                             {{ __('Warranty Groups') }}
-                        </flux:sidebar.item>
+                        </flux:sidebar.item> --}}
 
                         <flux:sidebar.item icon="tag" :href="route('taxonomies.index')"
                             :current="request()->routeIs('taxonomies.*')" wire:navigate>
