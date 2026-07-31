@@ -67,14 +67,24 @@ class WooCommerceSyncService
                 throw new RuntimeException("WooCommerce {$domain} item must be an object.");
             }
 
-            $syncItem = fn (): bool => DB::transaction(fn (): bool => $this->syncItem($run, $domain, $item));
-            $created = in_array($domain, ['categories', 'brands', 'products'], true)
-                ? Product::withoutSyncingToSearch(
-                    fn (): bool => GroupProduct::withoutSyncingToSearch($syncItem),
-                )
-                : $syncItem();
-            $stats['processed']++;
-            $stats[$created ? 'created' : 'updated']++;
+            try {
+                $syncItem = fn (): bool => DB::transaction(fn (): bool => $this->syncItem($run, $domain, $item));
+                $created = in_array($domain, ['categories', 'brands', 'products'], true)
+                    ? Product::withoutSyncingToSearch(
+                        fn (): bool => GroupProduct::withoutSyncingToSearch($syncItem),
+                    )
+                    : $syncItem();
+                $stats['processed']++;
+                $stats[$created ? 'created' : 'updated']++;
+            } catch (\Throwable $e) {
+                Log::error('WooCommerce item sync skipped.', [
+                    'domain' => $domain,
+                    'id' => $item['id'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+                $stats['processed']++;
+                $stats['failed']++;
+            }
         }
 
         return $stats;
@@ -183,9 +193,7 @@ class WooCommerceSyncService
             throw new RuntimeException("WooCommerce {$domain} item has no valid numeric ID.");
         }
 
-        if ($domain === 'products' && ($item['type'] ?? 'simple') !== 'simple') {
-            throw new RuntimeException("WooCommerce product #{$item['id']} is not a simple product.");
-        }
+        // Product type warning removed since we dynamically map it
 
         if ($domain === 'discounts' && (! isset($item['title']['rendered']) || ! is_array(data_get($item, 'acf.group_discount')))) {
             throw new RuntimeException("WooCommerce discount group #{$item['id']} does not match the expected contract.");
@@ -316,7 +324,7 @@ class WooCommerceSyncService
                 'length' => $this->decimal(data_get($item, 'dimensions.length')),
                 'width' => $this->decimal(data_get($item, 'dimensions.width')),
                 'height' => $this->decimal(data_get($item, 'dimensions.height')),
-                'product_type' => 'simple',
+                'product_type' => $item['type'] ?? 'simple',
                 'tax_category_id' => $this->taxCategoryId($item),
                 'discount_group_id' => $this->discountGroupId($item),
                 'meta_title' => $seoMetadata['title'],
@@ -594,16 +602,17 @@ class WooCommerceSyncService
             return null;
         }
 
-        $name = config("services.woocommerce.tax_class_map.{$taxClass}");
-        $taxCategoryId = $name
-            ? TaxCategory::query()->where('name', $name)->where('is_active', true)->value('id')
-            : null;
+        $taxCategoryName = ucfirst(str_replace('-', ' ', $taxClass));
+        $taxCategory = TaxCategory::query()->firstOrCreate(
+            ['name' => $taxCategoryName],
+            ['is_active' => true]
+        );
 
-        if ($taxCategoryId === null) {
-            throw new RuntimeException("WooCommerce tax class [{$taxClass}] is not mapped to an active Vanilo tax category.");
+        if ($taxCategory->wasRecentlyCreated) {
+            Log::info("Created WooCommerce tax class [{$taxClass}] as Vanilo tax category [{$taxCategoryName}].");
         }
 
-        return (int) $taxCategoryId;
+        return $taxCategory->id;
     }
 
     /**
