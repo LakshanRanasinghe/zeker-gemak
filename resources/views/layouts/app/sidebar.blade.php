@@ -7,11 +7,12 @@
 
 <body class="h-screen bg-white dark:bg-zinc-800 flex flex-col lg:flex-row overflow-hidden">
     @persist('toast')
-    <flux:toast position="top end" />
+        <flux:toast position="top end" />
     @endpersist
     <flux:sidebar sticky collapsible="mobile"
         class="border-e border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
-        <div class="absolute inset-0 pointer-events-none opacity-10" style="background-image: url('{{ asset('images/bg.png') }}');
+        <div class="absolute inset-0 pointer-events-none opacity-10"
+            style="background-image: url('{{ asset('images/bg.png') }}');
                background-size: 800px;
                background-position: center;
                background-repeat: repeat;">
@@ -95,11 +96,13 @@
                             {{ __('Team') }}
                         </flux:sidebar.item> --}}
                         <flux:sidebar.item icon="star" :href="route('settings.show', 'popular-products')"
-                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'popular-products'" wire:navigate>
+                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'popular-products'"
+                            wire:navigate>
                             {{ __('Popular Products') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="truck" :href="route('settings.show', 'dhl')"
-                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'dhl'" wire:navigate>
+                            :current="request()->routeIs('settings.show') && request()->route('tab') === 'dhl'"
+                            wire:navigate>
                             {{ __('DHL') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="receipt-percent" :href="route('moneybird.settings')"
@@ -192,6 +195,7 @@
 
     {{ $slot }}
 
+    @livewireScripts
     @fluxScripts
 </body>
 
