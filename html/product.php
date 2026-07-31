@@ -1,7 +1,7 @@
 <?php
 // Check if this file is run directly or included in another page
 $is_direct = (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME']));
-if ($is_direct):
+if ($is_direct) {
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -53,7 +53,7 @@ if ($is_direct):
     </head>
 
     <body class="min-h-screen flex flex-col">
-    <?php endif; ?>
+    <?php } ?>
 
     <!-- HEADER COMPONENT -->
     <header>
@@ -293,7 +293,7 @@ if ($is_direct):
         });
     </script>
 
-    <?php if ($is_direct): ?>
+    <?php if ($is_direct) { ?>
         <main class="relative w-full">
             <nav class="w-full bg-white border-b border-slate-100 py-4 lg:px-[156px] px-6" aria-label="Breadcrumb">
                 <div
@@ -1530,4 +1530,4 @@ if ($is_direct):
     </body>
 
     </html>
-<?php endif; ?>
+<?php } ?>

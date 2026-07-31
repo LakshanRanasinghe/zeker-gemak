@@ -1,7 +1,7 @@
 <?php
 // Check if this file is run directly or included in another page
 $is_direct = (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME']));
-if ($is_direct):
+if ($is_direct) {
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -53,7 +53,7 @@ if ($is_direct):
     </head>
 
     <body class="min-h-screen flex flex-col">
-    <?php endif; ?>
+    <?php } ?>
 
     <!-- HEADER COMPONENT -->
     <header>
@@ -349,7 +349,7 @@ if ($is_direct):
         });
     </script>
 
-    <?php if ($is_direct): ?>
+    <?php if ($is_direct) { ?>
         <!-- BEAUTIFUL HERO SECTION (For Previewing) -->
         <main class="relative w-full overflow-x-hidden">
             <!-- Hero section -->
@@ -1182,14 +1182,14 @@ if ($is_direct):
                                 class="testimonial-slide flex-shrink-0 relative bg-white rounded-xl p-6 md:p-8 flex flex-col gap-10 justify-between shadow-[4px_6px_20px_rgba(109,109,120,0.04)] border border-slate-100/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
                                 <div class="flex flex-col gap-6">
                                     <div class="flex items-center gap-1">
-                                        <?php for ($i = 0; $i < 5; $i++): ?>
+                                        <?php for ($i = 0; $i < 5; $i++) { ?>
                                             <svg width="28" height="28" viewBox="0 0 28 28" fill="none"
                                                 xmlns="http://www.w3.org/2000/svg">
                                                 <path
                                                     d="M13.1921 1.94244C13.491 1.22381 14.509 1.22381 14.8079 1.94244L17.4978 8.40973C17.6238 8.71268 17.9087 8.91968 18.2358 8.9459L25.2178 9.50564C25.9936 9.56784 26.3082 10.536 25.7171 11.0424L20.3975 15.5991C20.1484 15.8126 20.0395 16.1475 20.1157 16.4667L21.7409 23.2799C21.9215 24.037 21.0979 24.6353 20.4336 24.2296L14.4561 20.5786C14.1761 20.4076 13.8239 20.4076 13.5439 20.5786L7.56635 24.2296C6.90214 24.6353 6.07854 24.037 6.25913 23.2799L7.88434 16.4667C7.96047 16.1475 7.85164 15.8126 7.60245 15.5991L2.28292 11.0424C1.69183 10.536 2.00641 9.56784 2.78223 9.50564L9.76422 8.9459C10.0913 8.91968 10.3762 8.71268 10.5022 8.40973L13.1921 1.94244Z"
                                                     fill="#E9A821" />
                                             </svg>
-                                        <?php endfor; ?>
+                                        <?php } ?>
                                     </div>
                                     <div class="border-l-2 border-[#E9A821] pl-6">
                                         <p
@@ -1229,14 +1229,14 @@ if ($is_direct):
                                 class="testimonial-slide flex-shrink-0 relative bg-white rounded-xl p-6 md:p-8 flex flex-col gap-10 justify-between shadow-[4px_6px_20px_rgba(109,109,120,0.04)] border border-slate-100/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
                                 <div class="flex flex-col gap-6">
                                     <div class="flex items-center gap-1">
-                                        <?php for ($i = 0; $i < 5; $i++): ?>
+                                        <?php for ($i = 0; $i < 5; $i++) { ?>
                                             <svg width="28" height="28" viewBox="0 0 28 28" fill="none"
                                                 xmlns="http://www.w3.org/2000/svg">
                                                 <path
                                                     d="M13.1921 1.94244C13.491 1.22381 14.509 1.22381 14.8079 1.94244L17.4978 8.40973C17.6238 8.71268 17.9087 8.91968 18.2358 8.9459L25.2178 9.50564C25.9936 9.56784 26.3082 10.536 25.7171 11.0424L20.3975 15.5991C20.1484 15.8126 20.0395 16.1475 20.1157 16.4667L21.7409 23.2799C21.9215 24.037 21.0979 24.6353 20.4336 24.2296L14.4561 20.5786C14.1761 20.4076 13.8239 20.4076 13.5439 20.5786L7.56635 24.2296C6.90214 24.6353 6.07854 24.037 6.25913 23.2799L7.88434 16.4667C7.96047 16.1475 7.85164 15.8126 7.60245 15.5991L2.28292 11.0424C1.69183 10.536 2.00641 9.56784 2.78223 9.50564L9.76422 8.9459C10.0913 8.91968 10.3762 8.71268 10.5022 8.40973L13.1921 1.94244Z"
                                                     fill="#E9A821" />
                                             </svg>
-                                        <?php endfor; ?>
+                                        <?php } ?>
                                     </div>
                                     <div class="border-l-2 border-[#E9A821] pl-6">
                                         <p
@@ -1276,14 +1276,14 @@ if ($is_direct):
                                 class="testimonial-slide flex-shrink-0 relative bg-white rounded-xl p-6 md:p-8 flex flex-col gap-10 justify-between shadow-[4px_6px_20px_rgba(109,109,120,0.04)] border border-slate-100/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
                                 <div class="flex flex-col gap-6">
                                     <div class="flex items-center gap-1">
-                                        <?php for ($i = 0; $i < 5; $i++): ?>
+                                        <?php for ($i = 0; $i < 5; $i++) { ?>
                                             <svg width="28" height="28" viewBox="0 0 28 28" fill="none"
                                                 xmlns="http://www.w3.org/2000/svg">
                                                 <path
                                                     d="M13.1921 1.94244C13.491 1.22381 14.509 1.22381 14.8079 1.94244L17.4978 8.40973C17.6238 8.71268 17.9087 8.91968 18.2358 8.9459L25.2178 9.50564C25.9936 9.56784 26.3082 10.536 25.7171 11.0424L20.3975 15.5991C20.1484 15.8126 20.0395 16.1475 20.1157 16.4667L21.7409 23.2799C21.9215 24.037 21.0979 24.6353 20.4336 24.2296L14.4561 20.5786C14.1761 20.4076 13.8239 20.4076 13.5439 20.5786L7.56635 24.2296C6.90214 24.6353 6.07854 24.037 6.25913 23.2799L7.88434 16.4667C7.96047 16.1475 7.85164 15.8126 7.60245 15.5991L2.28292 11.0424C1.69183 10.536 2.00641 9.56784 2.78223 9.50564L9.76422 8.9459C10.0913 8.91968 10.3762 8.71268 10.5022 8.40973L13.1921 1.94244Z"
                                                     fill="#E9A821" />
                                             </svg>
-                                        <?php endfor; ?>
+                                        <?php } ?>
                                     </div>
                                     <div class="border-l-2 border-[#E9A821] pl-6">
                                         <p
@@ -1323,14 +1323,14 @@ if ($is_direct):
                                 class="testimonial-slide flex-shrink-0 relative bg-white rounded-xl p-6 md:p-8 flex flex-col gap-10 justify-between shadow-[4px_6px_20px_rgba(109,109,120,0.04)] border border-slate-100/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
                                 <div class="flex flex-col gap-6">
                                     <div class="flex items-center gap-1">
-                                        <?php for ($i = 0; $i < 5; $i++): ?>
+                                        <?php for ($i = 0; $i < 5; $i++) { ?>
                                             <svg width="28" height="28" viewBox="0 0 28 28" fill="none"
                                                 xmlns="http://www.w3.org/2000/svg">
                                                 <path
                                                     d="M13.1921 1.94244C13.491 1.22381 14.509 1.22381 14.8079 1.94244L17.4978 8.40973C17.6238 8.71268 17.9087 8.91968 18.2358 8.9459L25.2178 9.50564C25.9936 9.56784 26.3082 10.536 25.7171 11.0424L20.3975 15.5991C20.1484 15.8126 20.0395 16.1475 20.1157 16.4667L21.7409 23.2799C21.9215 24.037 21.0979 24.6353 20.4336 24.2296L14.4561 20.5786C14.1761 20.4076 13.8239 20.4076 13.5439 20.5786L7.56635 24.2296C6.90214 24.6353 6.07854 24.037 6.25913 23.2799L7.88434 16.4667C7.96047 16.1475 7.85164 15.8126 7.60245 15.5991L2.28292 11.0424C1.69183 10.536 2.00641 9.56784 2.78223 9.50564L9.76422 8.9459C10.0913 8.91968 10.3762 8.71268 10.5022 8.40973L13.1921 1.94244Z"
                                                     fill="#E9A821" />
                                             </svg>
-                                        <?php endfor; ?>
+                                        <?php } ?>
                                     </div>
                                     <div class="border-l-2 border-[#E9A821] pl-6">
                                         <p
@@ -1666,4 +1666,4 @@ if ($is_direct):
     </body>
 
     </html>
-<?php endif; ?>
+<?php } ?>
