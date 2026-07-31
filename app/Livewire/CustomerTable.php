@@ -277,8 +277,8 @@ final class CustomerTable extends PowerGridComponent
         } else {
             // No orders — safe to hard delete everything
             $user->addresses()->forceDelete();
-            $user->roles()->detach();
-            $user->permissions()->detach();
+            // $user->roles()->detach();
+            // $user->permissions()->detach();
             $user->forceDelete();
         }
     }

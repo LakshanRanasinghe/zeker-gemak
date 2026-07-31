@@ -22,8 +22,6 @@ class DatabaseSeeder extends Seeder
             EuCountriesSeeder::class,
             EuProvincesSeeder::class,
             CountryShippingRuleSeeder::class,
-            RolesAndPermissionsSeeder::class,
-            UserRoles::class,
             UserSeeder::class,
         ]);
     }

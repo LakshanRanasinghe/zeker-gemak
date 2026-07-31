@@ -12,19 +12,16 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        if (app()->environment('local')) {
 
-            $user = User::firstOrCreate(
-                [
-                    'email' => 'hirushan@dayzsolutions.com',
-                ],
-                [
-                    'name' => 'Hirushan Perera',
-                    'password' => bcrypt('elakiri123'),
-                ]
-            );
+        User::firstOrCreate(
+            [
+                'email' => 'info@dayzsolutions.com',
+            ],
+            [
+                'name' => 'Dayz Solutions',
+                'password' => bcrypt('U4LHivwu0R1LCEX0iR5J'),
+            ]
+        );
 
-            $user->assignRole('admin');
-        }
     }
 }

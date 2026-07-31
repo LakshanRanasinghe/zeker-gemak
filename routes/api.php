@@ -71,7 +71,7 @@ Route::get('guest/orders/{number}', [OrderController::class, 'showByNumber'])->n
 Route::post('webhooks/mollie', [OrderController::class, 'webhook'])->name('webhooks.mollie');
 Route::get('shipping-rules/active', [ShippingRuleController::class, 'active'])->name('shipping-rules.active');
 
-Route::middleware(['auth:sanctum', RoleMiddleware::using('admin')])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth:sanctum'/* , RoleMiddleware::using('admin') */])->prefix('admin')->name('admin.')->group(function () {
     Route::apiResource('shipping-rules', ShippingRuleController::class)
         ->parameters(['shipping-rules' => 'shippingRule'])
         ->names('shipping-rules');

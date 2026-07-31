@@ -100,13 +100,13 @@ final class DiscountGroups extends PowerGridComponent
                 ]);
         }
 
-        if (!empty($this->checkboxValues)) {
+        if (! empty($this->checkboxValues)) {
             $buttons[] = Button::add('bulk-delete')
                 ->slot(__('Bulk Delete'))
                 ->class('px-2 py-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-sm shadow-sm hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors')
                 ->attributes([
                     'x-data' => '',
-                    'x-on:click' => "if(confirm('" . __('Are you sure you want to delete the selected discount groups?') . "')) { \$wire.bulkDelete() }",
+                    'x-on:click' => "if(confirm('".__('Are you sure you want to delete the selected discount groups?')."')) { \$wire.bulkDelete() }",
                 ]);
         }
 

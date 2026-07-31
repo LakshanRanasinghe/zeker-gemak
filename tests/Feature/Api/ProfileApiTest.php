@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
@@ -12,7 +13,7 @@ beforeEach(function () {
         'email' => 'john@example.com',
         'password' => Hash::make('old-password'),
     ]);
-    \Laravel\Sanctum\Sanctum::actingAs($this->user);
+    Sanctum::actingAs($this->user);
 });
 
 it('returns the authenticated user profile', function () {

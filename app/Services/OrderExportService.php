@@ -37,7 +37,7 @@ class OrderExportService
 
             $kop->addChild('ORK_REFERENTIE', $order->number);
             $orderDate = $order->created_at;
-            if (!$orderDate instanceof Carbon) {
+            if (! $orderDate instanceof Carbon) {
                 try {
                     $orderDate = Carbon::parse(str_replace('/', '-', $orderDate));
                 } catch (\Exception $e) {
@@ -56,7 +56,7 @@ class OrderExportService
 
             if ($address) {
                 $naam1 = $address->company_name ?? ($billpayer->company_name ?? '');
-                $naam2 = $address->name ?? ($address->firstname . ' ' . $address->lastname);
+                $naam2 = $address->name ?? ($address->firstname.' '.$address->lastname);
 
                 if (empty($naam1)) {
                     $naam1 = $naam2;

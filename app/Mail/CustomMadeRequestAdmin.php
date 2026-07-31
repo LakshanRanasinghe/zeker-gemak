@@ -3,11 +3,11 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Mail\Mailables\Address;
 use Illuminate\Queue\SerializesModels;
 
 class CustomMadeRequestAdmin extends Mailable
@@ -33,8 +33,8 @@ class CustomMadeRequestAdmin extends Mailable
         $name = $this->data['name'] ?? '';
         $email = $this->data['email'] ?? '';
 
-        $subject = $company 
-            ? "Custom-made Label Request from {$company}" 
+        $subject = $company
+            ? "Custom-made Label Request from {$company}"
             : "Custom-made Label Request from {$name}";
 
         return new Envelope(
@@ -61,7 +61,7 @@ class CustomMadeRequestAdmin extends Mailable
     /**
      * Get the attachments for the message.
      *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     * @return array<int, Attachment>
      */
     public function attachments(): array
     {

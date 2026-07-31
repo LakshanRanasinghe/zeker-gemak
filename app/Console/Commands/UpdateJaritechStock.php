@@ -45,7 +45,7 @@ class UpdateJaritechStock extends Command
         try {
             $response = Http::sink($tempInputPath)->get($csvUrl);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $this->error("Failed to download CSV from {$csvUrl} (Status: {$response->status()})");
 
                 return self::FAILURE;

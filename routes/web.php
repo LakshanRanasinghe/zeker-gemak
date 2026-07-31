@@ -5,7 +5,7 @@ use App\Http\Controllers\MoneybirdController;
 use App\Http\Controllers\WysiwygUploadController;
 use App\Models\Product;
 use Illuminate\Support\Facades\Route;
-use Spatie\Permission\Middleware\RoleMiddleware;
+// use Spatie\Permission\Middleware\RoleMiddleware;
 use Vanilo\Order\Models\Order;
 use Vanilo\Order\Models\OrderProxy;
 use Vanilo\Properties\Models\PropertyValue;
@@ -15,7 +15,7 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 })->name('home');
 
-Route::middleware(['auth', 'verified', 'web', RoleMiddleware::using('admin')])->group(function () {
+Route::middleware(['auth', 'verified', 'web'])->group(function () {
     Route::get('lang/{locale}', function ($locale) {
         if (array_key_exists($locale, config('app.available_locales'))) {
             session(['locale' => $locale]);
