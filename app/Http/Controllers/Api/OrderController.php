@@ -129,7 +129,7 @@ class OrderController extends Controller
             return new OrderResource(
                 OrderProxy::query()
                     ->where('number', $number)
-                    ->with(['items', 'billpayer.address', 'shippingAddress'])
+                    ->with(['items.product.media', 'billpayer.address', 'shippingAddress'])
                     ->firstOrFail()
             );
         }
@@ -137,6 +137,10 @@ class OrderController extends Controller
         if ($checkoutSession->mollie_payment_id) {
             $payment = Mollie::api()->payments->get($checkoutSession->mollie_payment_id);
             $checkoutSession = $this->processPayment($checkoutSession, $payment);
+        }
+
+        if ($checkoutSession->order) {
+            $checkoutSession->order->loadMissing(['items.product.media', 'billpayer.address', 'shippingAddress']);
         }
 
         return response()->json([
@@ -154,7 +158,7 @@ class OrderController extends Controller
      */
     public function show(Request $request, $orderId)
     {
-        $order = $request->user()->orders()->with(['items', 'billpayer.address', 'shippingAddress'])->findOrFail($orderId);
+        $order = $request->user()->orders()->with(['items.product.media', 'billpayer.address', 'shippingAddress'])->findOrFail($orderId);
 
         return new OrderResource($order);
     }
