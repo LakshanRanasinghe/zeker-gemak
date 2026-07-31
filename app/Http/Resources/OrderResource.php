@@ -34,6 +34,12 @@ class OrderResource extends JsonResource
             'original_checkout_payload' => $this->original_checkout_payload,
             'items' => $this->items->values()->map(function ($item, int $index) use ($lines) {
                 $line = $lines->get($index, []);
+                $product = $item->product;
+                $mainImage = null;
+                if ($product && method_exists($product, 'getFirstMediaUrl')) {
+                    $mediaUrl = $product->getFirstMediaUrl('main');
+                    $mainImage = $mediaUrl !== '' ? $mediaUrl : null;
+                }
 
                 return [
                     'id' => $item->id,
@@ -43,6 +49,13 @@ class OrderResource extends JsonResource
                     'price_ex_tax' => (float) ($line['unit_ex_tax'] ?? $item->price),
                     'quantity' => $item->quantity,
                     'total' => (float) ($line['line_total'] ?? ($item->price * $item->quantity)),
+                    'main_image' => $mainImage,
+                    'image' => $mainImage,
+                    'product' => [
+                        'id' => $item->product_id,
+                        'slug' => $product?->slug,
+                        'main_image' => $mainImage,
+                    ],
                     'source_group_product_id' => $item->source_group_product_id,
                     'source_group_product_name' => $item->source_group_product_name,
                     'source_group_product_display_name' => $item->source_group_product_display_name,

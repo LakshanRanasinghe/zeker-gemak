@@ -17,7 +17,7 @@
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="vertical-align:middle;">
-                  <img src="{{ config('app.url') }}/logo.png" alt="{{ config('app.company.name') }}" width="160"
+                  <img src="{{ $message->embed(public_path('images/zeker-gemak-logo.png')) }}" alt="{{ config('app.company.name') }}" width="160"
                     style="display:block;height:auto;max-height:34px;object-fit:contain;" />
                 </td>
                 <td align="right" style="vertical-align:middle;">

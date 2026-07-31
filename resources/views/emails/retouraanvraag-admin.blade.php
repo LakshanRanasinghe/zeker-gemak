@@ -13,7 +13,7 @@
           <td style="background-color:#0c2a3a;border-radius:16px 16px 0 0;padding:20px 32px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td><img src="{{ config('app.url') }}/logo.png" alt="{{ config('app.company.name') }}" width="160" style="display:block;height:auto;max-height:34px;object-fit:contain;" /></td>
+                <td><img src="{{ $message->embed(public_path('images/zeker-gemak-logo.png')) }}" alt="{{ config('app.company.name') }}" width="160" style="display:block;height:auto;max-height:34px;object-fit:contain;" /></td>
                 <td align="right"><span style="font-size:11px;color:#64748b;letter-spacing:0.06em;text-transform:uppercase;">Admin Notification</span></td>
               </tr>
             </table>
